@@ -1010,14 +1010,24 @@ function isUpsell(r) {
   return pn(r[C.契約金額]) + pn(r[C.お試し額]) >= 15000;
 }
 
-// 定義タブ準拠: 来店状況=「来店」かつ支払方法≠「自社割賦」
+// 来店フィルタ: 来店状況=「来店」かつ支払方法≠「自社割賦」
 const isVisit = r => r[C.来店状況]==='来店' && r[C.支払方法]!=='自社割賦';
-// 契約状況の定義リスト（お試し・初回都度も契約に含む）
-const CONTRACT_STATUSES = new Set(['契約','初回都度','契約+初回都度','お試し','契約+お試し','お試し3回','契約+お試し3回']);
-const isContract  = r => isVisit(r) && CONTRACT_STATUSES.has(r[C.契約状況]||'');
-const isTrialType = r => isContract(r) && (r[C.契約状況]||'').includes('お試し'); // 契約のうちお試し系
-const isCAOnly    = r => isVisit(r) && !CONTRACT_STATUSES.has(r[C.契約状況]||'') && (r[C.契約状況]||'').includes('CA');
-const isUnknown   = r => isVisit(r) && !(r[C.契約状況]||'').trim();
+
+// 【MCL】定義タブ準拠の契約ステータス
+const MCL_CONTRACT = new Set([
+  'CP契約','CP契約＋お試し','お試し','クーオフ','契約','契約+CP契約',
+  '契約＋お試し','契約＋パッチテスト','都度','契約＋都度','クーオフ＋お試し3回',
+]);
+// 【STL】定義タブ準拠の契約ステータス
+const STL_CONTRACT = new Set([
+  '契約','初回都度','契約+初回都度','お試し','契約+お試し','お試し3回','契約+お試し3回',
+]);
+
+function contractSet(r) { return r._biz === 'mcl' ? MCL_CONTRACT : STL_CONTRACT; }
+const isContract  = r => isVisit(r) && contractSet(r).has(r[C.契約状況]||'');
+const isTrialType = r => isContract(r) && (r[C.契約状況]||'').includes('お試し');
+const isCAOnly    = r => isVisit(r) && (r[C.契約状況]||'') === 'CAのみ';
+const isUnknown   = r => isVisit(r) && !contractSet(r).has(r[C.契約状況]||'') && (r[C.契約状況]||'') !== 'CAのみ';
 
 function renderResultBars(k) {
   const max=k.n||1;
