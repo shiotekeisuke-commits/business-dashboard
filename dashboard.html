@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>両事業管理ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg0: #080a12;
+      --bg1: #0e1120;
+      --bg2: #141728;
+      --bg3: #1a1f35;
+      --border: rgba(120, 130, 255, 0.12);
+      --border-hover: rgba(120, 130, 255, 0.3);
+      --mcl: #38bdf8;
+      --mcl-dim: rgba(56, 189, 248, 0.15);
+      --stl: #f472b6;
+      --stl-dim: rgba(244, 114, 182, 0.15);
+      --both: #818cf8;
+      --both-dim: rgba(129, 140, 248, 0.15);
+      --green: #34d399;
+      --green-dim: rgba(52, 211, 153, 0.15);
+      --amber: #fbbf24;
+      --amber-dim: rgba(251, 191, 36, 0.15);
+      --red: #f87171;
+      --red-dim: rgba(248, 113, 113, 0.15);
+      --text0: #f0f4ff;
+      --text1: #8892b0;
+      --text2: #4a5578;
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg0);
+      color: var(--text0);
+      font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo UI', sans-serif;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ───────────────────────────────── */
+    .header {
+      background: linear-gradient(180deg, #0b0e1e 0%, rgba(11,14,30,0.95) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      backdrop-filter: blur(20px);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 14px; }
+
+    .logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, #818cf8 0%, #f472b6 100%);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 900; letter-spacing: -1px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(129,140,248,0.3);
+    }
+
+    .header-title {
+      font-size: 17px; font-weight: 700;
+      background: linear-gradient(90deg, #e0e7ff, #a5b4fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -0.3px;
+    }
+    .header-sub { font-size: 11px; color: var(--text2); margin-top: 1px; letter-spacing: 0.05em; }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .last-updated { font-size: 11px; color: var(--text2); }
+
+    .btn-refresh {
+      background: rgba(129,140,248,0.1);
+      border: 1px solid rgba(129,140,248,0.25);
+      color: #a5b4fc;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .btn-refresh:hover { background: rgba(129,140,248,0.2); border-color: rgba(129,140,248,0.4); color: #e0e7ff; }
+
+    /* ── MAIN ─────────────────────────────────── */
+    .main { max-width: 1600px; margin: 0 auto; padding: 24px 28px 48px; }
+
+    /* ── TOP BAR (toggle + filters) ───────────── */
+    .topbar {
+      display: flex; align-items: flex-end; gap: 24px;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+
+    .biz-toggle { display: flex; gap: 6px; }
+
+    .tbtn {
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 13px; font-weight: 600;
+      font-family: inherit;
+      transition: all 0.18s;
+      letter-spacing: 0.02em;
+    }
+    .tbtn.mcl  { background: var(--mcl-dim);  border-color: rgba(56,189,248,0.25);  color: #7dd3fc; }
+    .tbtn.stl  { background: var(--stl-dim);  border-color: rgba(244,114,182,0.25); color: #f9a8d4; }
+    .tbtn.both { background: var(--both-dim); border-color: rgba(129,140,248,0.25); color: #a5b4fc; }
+    .tbtn.mcl.active  { background: rgba(56,189,248,0.22);  border-color: var(--mcl);  color: #fff; box-shadow: 0 0 12px rgba(56,189,248,0.2); }
+    .tbtn.stl.active  { background: rgba(244,114,182,0.22); border-color: var(--stl);  color: #fff; box-shadow: 0 0 12px rgba(244,114,182,0.2); }
+    .tbtn.both.active { background: rgba(129,140,248,0.22); border-color: var(--both); color: #fff; box-shadow: 0 0 12px rgba(129,140,248,0.2); }
+
+    .filters { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .fg { display: flex; flex-direction: column; gap: 4px; }
+    .fg-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .fsel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text0);
+      padding: 7px 30px 7px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 13px; font-family: inherit;
+      cursor: pointer;
+      min-width: 130px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234a5578'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center; background-size: 18px;
+      transition: border-color 0.2s;
+    }
+    .fsel:focus { outline: none; border-color: var(--both); }
+    .fsel option { background: #1a1f35; }
+
+    /* ── KPI CARDS ────────────────────────────── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .kpi {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+    .kpi:hover { transform: translateY(-3px); border-color: var(--border-hover); box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+    .kpi::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .kpi.c1::after { background: linear-gradient(90deg, #818cf8, #60a5fa); }
+    .kpi.c2::after { background: linear-gradient(90deg, #34d399, #60a5fa); }
+    .kpi.c3::after { background: linear-gradient(90deg, #fbbf24, #f97316); }
+    .kpi.c4::after { background: linear-gradient(90deg, #f472b6, #e879f9); }
+    .kpi.c5::after { background: linear-gradient(90deg, #818cf8, #e879f9); }
+    .kpi.c6::after { background: linear-gradient(90deg, #34d399, #14b8a6); }
+
+    .kpi-label { font-size: 11px; color: var(--text1); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .kpi-emoji { font-size: 13px; }
+    .kpi-val { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; margin-bottom: 6px; }
+    .kpi-val.sm { font-size: 22px; }
+    .kpi-sub { font-size: 11px; color: var(--text2); }
+    .kpi-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+      background: rgba(52,211,153,0.12); color: var(--green);
+      margin-top: 6px;
+    }
+
+    /* ── CHART GRID ───────────────────────────── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+    }
+    .card.fw { grid-column: 1 / -1; }
+
+    .card-title { font-size: 13px; font-weight: 700; color: var(--text0); margin-bottom: 3px; }
+    .card-sub { font-size: 11px; color: var(--text2); margin-bottom: 18px; }
+
+    canvas { display: block; }
+
+    /* ── FUNNEL ───────────────────────────────── */
+    .funnel { display: flex; flex-direction: column; gap: 10px; }
+    .fn-step { display: flex; align-items: center; gap: 10px; }
+    .fn-label { min-width: 100px; font-size: 11px; color: var(--text1); text-align: right; flex-shrink: 0; }
+    .fn-track { flex: 1; height: 38px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; }
+    .fn-fill {
+      height: 100%; border-radius: 8px;
+      display: flex; align-items: center; padding: 0 12px;
+      font-size: 13px; font-weight: 700; color: #fff;
+      transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+      white-space: nowrap;
+    }
+    .fn-right { min-width: 52px; text-align: right; }
+    .fn-pct { font-size: 12px; color: var(--text2); }
+    .fn-count { font-size: 16px; font-weight: 700; }
+
+    /* ── TABLE ────────────────────────────────── */
+    .table-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+    .table-head-bar {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .table-count { font-size: 11px; color: var(--text2); }
+    .tscroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+      background: rgba(129,140,248,0.05);
+      color: var(--text1); font-weight: 600;
+      padding: 10px 14px; text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid rgba(129,140,248,0.05); transition: background 0.12s; }
+    tbody tr:hover { background: rgba(129,140,248,0.04); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 10px 14px; white-space: nowrap; }
+    td.name { font-weight: 600; color: var(--text0); }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.yen { text-align: right; font-variant-numeric: tabular-nums; color: var(--green); }
+
+    .chip {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 600;
+    }
+    .chip-g { background: rgba(52,211,153,0.12); color: #34d399; }
+    .chip-b { background: rgba(96,165,250,0.12); color: #93c5fd; }
+    .chip-y { background: rgba(251,191,36,0.12); color: #fcd34d; }
+    .chip-r { background: rgba(248,113,113,0.12); color: #fca5a5; }
+    .chip-d { background: rgba(74,85,120,0.15); color: #64748b; }
+
+    /* ── LOADING / EMPTY ──────────────────────── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; gap: 12px;
+      color: var(--text2); font-size: 13px;
+      grid-column: 1 / -1;
+    }
+    .spin {
+      width: 22px; height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--both);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty {
+      text-align: center; padding: 48px;
+      color: var(--text2); font-size: 13px;
+    }
+
+    /* ── INFO BANNER ──────────────────────────── */
+    .banner {
+      background: rgba(251,191,36,0.08);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 12px; color: #fcd34d;
+      margin-bottom: 22px;
+      display: none;
+    }
+    .banner.show { display: block; }
+
+    /* ── RESPONSIVE ───────────────────────────── */
+    @media (max-width: 1200px) {
+      .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 960px) {
+      .chart-grid { grid-template-columns: 1fr; }
+      .card.fw { grid-column: 1; }
+    }
+    @media (max-width: 720px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .main { padding: 16px; }
+      .header { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo">両</div>
+    <div>
+      <div class="header-title">両事業管理ダッシュボード</div>
+      <div class="header-sub">MCL メンズ脱毛 ／ STL レディース脱毛 統合管理システム</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated">–</span>
+    <button class="btn-refresh" onclick="init()">↻ 更新</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="biz-toggle">
+      <button class="tbtn mcl"  data-biz="mcl"  onclick="setBiz('mcl')">♂ MCL</button>
+      <button class="tbtn stl"  data-biz="stl"  onclick="setBiz('stl')">♀ STL</button>
+      <button class="tbtn both active" data-biz="both" onclick="setBiz('both')">◈ 両事業</button>
+    </div>
+
+    <div class="filters">
+      <div class="fg">
+        <span class="fg-label">年度</span>
+        <select class="fsel" id="fYear"  onchange="render()"><option value="">全期間</option></select>
+      </div>
+      <div class="fg">
+        <span class="fg-label">月</span>
+        <select class="fsel" id="fMonth" onchange="render()">
+          <option value="">全月</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option>
+          <option>5</option><option>6</option><option>7</option><option>8</option>
+          <option>9</option><option>10</option><option>11</option><option>12</option>
+        </select>
+      </div>
+      <div class="fg">
+        <span class="fg-label">店舗</span>
+        <select class="fsel" id="fStore" onchange="render()"><option value="">全店舗</option></select>
+      </div>
+      <div class="fg">
+        <span class="fg-label">CP名</span>
+        <select class="fsel" id="fCP"    onchange="render()"><option value="">全CP</option></select>
+      </div>
+      <div class="fg">
+        <span class="fg-label">担当者</span>
+        <select class="fsel" id="fStaff" onchange="render()"><option value="">全担当者</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- BANNER -->
+  <div class="banner" id="banner"></div>
+
+  <!-- KPI ROW -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="loading" style="height:100px;"><div class="spin"></div> データ読み込み中…</div>
+  </div>
+
+  <!-- CHARTS ROW 1: Trend + Funnel -->
+  <div class="chart-grid">
+    <div class="card fw">
+      <div class="card-title">月別推移</div>
+      <div class="card-sub">CV数・予約確定・来店・契約の月別推移</div>
+      <div style="position:relative; height:260px;"><canvas id="cTrend"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">コンバージョンファネル</div>
+      <div class="card-sub">問い合わせから契約までの転換率</div>
+      <div class="funnel" id="funnel"><div class="loading" style="height:120px;"><div class="spin"></div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">店舗別成績</div>
+      <div class="card-sub">店舗ごとのCV数・来店数・契約数</div>
+      <div style="position:relative; height:260px;"><canvas id="cStore"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2: CP + Payment + Media -->
+  <div class="chart-grid">
+    <div class="card fw">
+      <div class="card-title">CP別成績（上位15件）</div>
+      <div class="card-sub">キャンペーン別 CV数・契約数</div>
+      <div style="position:relative; height:300px;"><canvas id="cCP"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">支払方法別（契約者）</div>
+      <div class="card-sub">支払方法の分布</div>
+      <div style="position:relative; height:240px;"><canvas id="cPay"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">媒体別 CV数</div>
+      <div class="card-sub">集客媒体ごとの問い合わせ数</div>
+      <div style="position:relative; height:240px;"><canvas id="cMedia"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-card">
+    <div class="table-head-bar">
+      <div>
+        <div class="card-title">店舗別サマリー</div>
+        <div class="table-count" id="tblCount">–</div>
+      </div>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead>
+          <tr>
+            <th>店舗名</th>
+            <th style="text-align:right">CV数</th>
+            <th style="text-align:right">予約確定</th>
+            <th style="text-align:right">予約確定率</th>
+            <th style="text-align:right">来店数</th>
+            <th style="text-align:right">来店率</th>
+            <th style="text-align:right">契約数</th>
+            <th style="text-align:right">契約率</th>
+            <th style="text-align:right">契約金額合計</th>
+            <th style="text-align:right">入金額合計</th>
+          </tr>
+        </thead>
+        <tbody id="tBody"><tr><td colspan="10" class="empty">読み込み中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* =====================================================================
+   CONFIG
+   ===================================================================== */
+const SS = {
+  MAIN_ID:  '1I316cax-siLMQ-LkElJ76IOMUhxxnML8_ep3ErC24Ds',
+  MAIN_GID: '1587715694',
+  MCL_ID:   '1pR3ac1HnjHrST7yIRQwNpWcXtMoYCNLSn-iKnv56sYk',
+  STL_ID:   '1niCy-m2NhYptaYKQbGBSUTQH0nlQbcKw3DObzooagsU',
+};
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+let RAW = [];        // 全生データ
+let DATA = [];       // フィルタ後データ
+let BIZ = 'both';
+const CHARTS = {};
+
+/* =====================================================================
+   COLUMN NAMES
+   ===================================================================== */
+const C = {
+  店舗:    '実店舗名',
+  問店舗:  '問店舗名',
+  媒体:    '媒体名：集計用',
+  日付:    '日付',
+  進捗:    '進捗状況',
+  予約確定日: '予約確定日',
+  キャンセル: 'キャンセル状況',
+  CP:      'CP名',
+  担当者:  '店舗担当者',
+  来店状況: '来店状況',
+  契約状況: '契約状況',
+  契約金額: '契約金額',
+  入金額:  '入金額',
+  支払方法: '支払方法',
+  biz:     '_biz',
+};
+
+/* =====================================================================
+   DATA LOADING
+   ===================================================================== */
+function gvizUrl(id, gid) {
+  const base = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
+  return gid ? `${base}&gid=${gid}` : base;
+}
+
+function fetchCSV(id, gid, biz) {
+  return new Promise(resolve => {
+    Papa.parse(gvizUrl(id, gid), {
+      download: true, header: true, skipEmptyLines: true,
+      complete: r => resolve(r.data.map(row => ({ ...row, _biz: biz }))),
+      error: () => resolve([]),
+    });
+  });
+}
+
+async function init() {
+  setLoading(true);
+
+  try {
+    // まずメインデータを取得
+    const main = await fetchCSV(SS.MAIN_ID, SS.MAIN_GID, 'main');
+
+    // MCL/STL個別シートを試みる（非公開なら空配列）
+    const [mcl, stl] = await Promise.all([
+      fetchCSV(SS.MCL_ID, null, 'mcl'),
+      fetchCSV(SS.STL_ID, null, 'stl'),
+    ]);
+
+    if (mcl.length > 0 || stl.length > 0) {
+      RAW = [...mcl, ...stl];
+      hideBanner();
+    } else {
+      // MCL/STL個別シートが非公開 → メインデータを使用
+      RAW = main;
+      showBanner('ℹ️ MCL・STL個別スプレッドシートが非公開のため、メインデータベースのデータを表示しています。個別切り替えにはそれぞれを「公開」設定にしてください。');
+    }
+
+    buildFilters();
+    render();
+
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      `更新: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  } catch (e) {
+    setLoading(false);
+    showBanner('⚠️ データの読み込みに失敗しました。スプレッドシートの公開設定を確認してください。');
+  }
+}
+
+function setLoading(on) {
+  if (on) {
+    document.getElementById('kpiRow').innerHTML = `<div class="loading"><div class="spin"></div> データ読み込み中…</div>`;
+  }
+}
+
+/* =====================================================================
+   FILTER BUILD
+   ===================================================================== */
+function buildFilters() {
+  const years = uniq(RAW.map(r => { const d = pd(r[C.日付]); return d ? d.getFullYear() : null; }).filter(Boolean)).sort((a,b)=>b-a);
+  setSel('fYear', years, v => `${v}年`);
+
+  const stores = uniq(RAW.map(r => r[C.店舗]).filter(Boolean)).sort();
+  setSel('fStore', stores);
+
+  const cps = uniq(RAW.map(r => r[C.CP]).filter(Boolean)).sort();
+  setSel('fCP', cps);
+
+  const staff = uniq(RAW.map(r => r[C.担当者]).filter(Boolean)).sort();
+  setSel('fStaff', staff);
+}
+
+function setSel(id, items, label = v => v) {
+  const el = document.getElementById(id);
+  const cur = el.value;
+  const first = el.options[0].outerHTML;
+  el.innerHTML = first + items.map(v => `<option value="${v}" ${v==cur?'selected':''}>${label(v)}</option>`).join('');
+}
+
+/* =====================================================================
+   FILTER APPLY
+   ===================================================================== */
+function render() {
+  const year  = v('fYear');
+  const month = v('fMonth');
+  const store = v('fStore');
+  const cp    = v('fCP');
+  const staff = v('fStaff');
+
+  DATA = RAW.filter(r => {
+    if (BIZ !== 'both' && r._biz !== 'main') {
+      if (r._biz !== BIZ) return false;
+    }
+    if (year || month) {
+      const d = pd(r[C.日付]);
+      if (!d) return false;
+      if (year  && d.getFullYear()  !== +year)  return false;
+      if (month && d.getMonth()+1   !== +month) return false;
+    }
+    if (store && r[C.店舗]   !== store) return false;
+    if (cp    && r[C.CP]     !== cp)    return false;
+    if (staff && r[C.担当者] !== staff) return false;
+    return true;
+  });
+
+  const kpis = calcKPI(DATA);
+  renderKPI(kpis);
+  renderFunnel(kpis);
+  renderTrend();
+  renderStore();
+  renderCP();
+  renderPay();
+  renderMedia();
+  renderTable();
+}
+
+/* =====================================================================
+   CALCULATIONS
+   ===================================================================== */
+function pd(s) {
+  if (!s) return null;
+  // YYYY/MM/DD
+  let m = String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  // YYYY年M月D日
+  m = String(s).match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  return null;
+}
+
+function pn(s) {
+  if (!s) return 0;
+  const n = parseInt(String(s).replace(/[^\d\-]/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+const isReserved   = r => !!r[C.予約確定日] || (r[C.進捗]||'').includes('予約確定') || isContracted(r);
+const isVisited    = r => (r[C.来店状況]||'').includes('来店');
+const isContracted = r => (r[C.契約状況]||'').includes('契約') && !(r[C.契約状況]||'').startsWith('CA');
+const isCancelled  = r => (r[C.キャンセル]||'').includes('キャンセル');
+
+function calcKPI(rows) {
+  const cv  = rows.length;
+  const rsv = rows.filter(isReserved).length;
+  const vis = rows.filter(isVisited).length;
+  const con = rows.filter(isContracted).length;
+  const can = rows.filter(isCancelled).length;
+  const contractAmt = rows.reduce((s,r) => s + pn(r[C.契約金額]), 0);
+  const payAmt      = rows.reduce((s,r) => s + pn(r[C.入金額]),   0);
+  return {
+    cv, rsv, vis, con, can, contractAmt, payAmt,
+    rsvRate: cv  > 0 ? rsv / cv  : 0,
+    visRate: rsv > 0 ? vis / rsv : 0,
+    conRate: vis > 0 ? con / vis : 0,
+    cvConRate: cv > 0 ? con / cv : 0,
+  };
+}
+
+/* =====================================================================
+   RENDER KPI
+   ===================================================================== */
+function renderKPI(k) {
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi c1">
+      <div class="kpi-label"><span class="kpi-emoji">📊</span> CV数（問い合わせ）</div>
+      <div class="kpi-val">${fmt(k.cv)}</div>
+      <div class="kpi-sub">総問い合わせ件数</div>
+    </div>
+    <div class="kpi c2">
+      <div class="kpi-label"><span class="kpi-emoji">📅</span> 予約確定数</div>
+      <div class="kpi-val">${fmt(k.rsv)}</div>
+      <div class="kpi-badge">確定率 ${pct(k.rsvRate)}</div>
+    </div>
+    <div class="kpi c3">
+      <div class="kpi-label"><span class="kpi-emoji">🚶</span> 来店数</div>
+      <div class="kpi-val">${fmt(k.vis)}</div>
+      <div class="kpi-badge">来店率 ${pct(k.visRate)}</div>
+    </div>
+    <div class="kpi c4">
+      <div class="kpi-label"><span class="kpi-emoji">✅</span> 契約数</div>
+      <div class="kpi-val">${fmt(k.con)}</div>
+      <div class="kpi-badge">契約率 ${pct(k.conRate)}</div>
+    </div>
+    <div class="kpi c5">
+      <div class="kpi-label"><span class="kpi-emoji">💰</span> 契約金額合計</div>
+      <div class="kpi-val sm">${yen(k.contractAmt)}</div>
+      <div class="kpi-sub">CV→契約 ${pct(k.cvConRate)}</div>
+    </div>
+    <div class="kpi c6">
+      <div class="kpi-label"><span class="kpi-emoji">💳</span> 入金額合計</div>
+      <div class="kpi-val sm">${yen(k.payAmt)}</div>
+      <div class="kpi-sub">キャンセル ${fmt(k.can)}件</div>
+    </div>
+  `;
+}
+
+/* =====================================================================
+   RENDER FUNNEL
+   ===================================================================== */
+function renderFunnel(k) {
+  const steps = [
+    { label: 'CV（問い合わせ）', n: k.cv,  rate: null,      color: 'linear-gradient(90deg,#818cf8,#60a5fa)' },
+    { label: '予約確定',        n: k.rsv, rate: k.rsvRate, color: 'linear-gradient(90deg,#34d399,#60a5fa)' },
+    { label: '来店',            n: k.vis, rate: k.visRate, color: 'linear-gradient(90deg,#fbbf24,#f97316)' },
+    { label: '契約',            n: k.con, rate: k.conRate, color: 'linear-gradient(90deg,#f472b6,#e879f9)' },
+  ];
+  const max = k.cv || 1;
+
+  document.getElementById('funnel').innerHTML = steps.map(s => `
+    <div class="fn-step">
+      <div class="fn-label">${s.label}</div>
+      <div class="fn-track">
+        <div class="fn-fill" style="width:${Math.max(s.n/max*100,0)}%;background:${s.color}">
+          ${s.n > 0 ? fmt(s.n) : ''}
+        </div>
+      </div>
+      <div class="fn-right">
+        <div class="fn-count">${fmt(s.n)}</div>
+        <div class="fn-pct">${s.rate !== null ? pct(s.rate) : '100%'}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* =====================================================================
+   CHARTS
+   ===================================================================== */
+function destroyChart(key) {
+  if (CHARTS[key]) { CHARTS[key].destroy(); delete CHARTS[key]; }
+}
+
+const CHART_DEFAULTS = {
+  color: '#8892b0',
+  font: { family: "'Hiragino Kaku Gothic ProN','Meiryo UI',sans-serif", size: 11 },
+};
+Chart.defaults.color = CHART_DEFAULTS.color;
+Chart.defaults.font  = CHART_DEFAULTS.font;
+
+function axisOpts(extras = {}) {
+  return {
+    ticks: { color: '#4a5578', font: { size: 11 }, ...extras.ticks },
+    grid:  { color: 'rgba(129,140,248,0.07)', ...extras.grid },
+    ...extras,
+  };
+}
+
+function tooltipOpts(extras = {}) {
+  return {
+    backgroundColor: '#1a1f35',
+    titleColor: '#f0f4ff',
+    bodyColor: '#8892b0',
+    borderColor: 'rgba(129,140,248,0.2)',
+    borderWidth: 1,
+    padding: 12,
+    ...extras,
+  };
+}
+
+/* 月別推移 */
+function renderTrend() {
+  destroyChart('trend');
+  const map = {};
+  DATA.forEach(r => {
+    const d = pd(r[C.日付]); if (!d) return;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (!map[k]) map[k] = { cv:0, rsv:0, vis:0, con:0 };
+    map[k].cv++;
+    if (isReserved(r))   map[k].rsv++;
+    if (isVisited(r))    map[k].vis++;
+    if (isContracted(r)) map[k].con++;
+  });
+  const keys = Object.keys(map).sort();
+  const labels = keys.map(k => { const [y,m]=k.split('-'); return `${y}/${parseInt(m)}`; });
+
+  CHARTS.trend = new Chart(document.getElementById('cTrend'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'CV数',    data: keys.map(k=>map[k].cv),  borderColor:'#818cf8', backgroundColor:'rgba(129,140,248,0.08)', tension:0.4, fill:true,  pointRadius:3 },
+        { label:'予約確定', data: keys.map(k=>map[k].rsv), borderColor:'#34d399', backgroundColor:'transparent',            tension:0.4, fill:false, borderDash:[5,4], pointRadius:3 },
+        { label:'来店',    data: keys.map(k=>map[k].vis), borderColor:'#fbbf24', backgroundColor:'transparent',            tension:0.4, fill:false, pointRadius:3 },
+        { label:'契約',    data: keys.map(k=>map[k].con), borderColor:'#f472b6', backgroundColor:'rgba(244,114,182,0.08)', tension:0.4, fill:true,  pointRadius:3 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth:10, padding:14 } }, tooltip: tooltipOpts() },
+      scales: { x: axisOpts({ ticks: { maxRotation: 45 } }), y: axisOpts() },
+    },
+  });
+}
+
+/* 店舗別 */
+function renderStore() {
+  destroyChart('store');
+  const map = {};
+  DATA.forEach(r => {
+    const s = r[C.店舗] || '(不明)';
+    if (!map[s]) map[s] = { cv:0, vis:0, con:0 };
+    map[s].cv++;
+    if (isVisited(r))    map[s].vis++;
+    if (isContracted(r)) map[s].con++;
+  });
+  const labs = Object.keys(map).sort((a,b) => map[b].cv - map[a].cv);
+
+  CHARTS.store = new Chart(document.getElementById('cStore'), {
+    type: 'bar',
+    data: {
+      labels: labs,
+      datasets: [
+        { label:'CV数',  data: labs.map(l=>map[l].cv),  backgroundColor:'rgba(129,140,248,0.55)', borderColor:'#818cf8', borderWidth:1, borderRadius:5 },
+        { label:'来店数', data: labs.map(l=>map[l].vis), backgroundColor:'rgba(251,191,36,0.55)',  borderColor:'#fbbf24', borderWidth:1, borderRadius:5 },
+        { label:'契約数', data: labs.map(l=>map[l].con), backgroundColor:'rgba(244,114,182,0.55)', borderColor:'#f472b6', borderWidth:1, borderRadius:5 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth:10, padding:14 } }, tooltip: tooltipOpts() },
+      scales: { x: axisOpts(), y: axisOpts() },
+    },
+  });
+}
+
+/* CP別 */
+function renderCP() {
+  destroyChart('cp');
+  const map = {};
+  DATA.forEach(r => {
+    const cp = r[C.CP] || '(未設定)';
+    if (!map[cp]) map[cp] = { cv:0, con:0 };
+    map[cp].cv++;
+    if (isContracted(r)) map[cp].con++;
+  });
+  const labs = Object.keys(map).sort((a,b)=>map[b].cv-map[a].cv).slice(0,15);
+
+  CHARTS.cp = new Chart(document.getElementById('cCP'), {
+    type: 'bar',
+    data: {
+      labels: labs,
+      datasets: [
+        { label:'CV数',  data: labs.map(l=>map[l].cv),  backgroundColor:'rgba(129,140,248,0.55)', borderColor:'#818cf8', borderWidth:1, borderRadius:4 },
+        { label:'契約数', data: labs.map(l=>map[l].con), backgroundColor:'rgba(244,114,182,0.6)',  borderColor:'#f472b6', borderWidth:1, borderRadius:4 },
+      ],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { boxWidth:10, padding:14 } }, tooltip: tooltipOpts() },
+      scales: {
+        x: axisOpts(),
+        y: { ...axisOpts(), ticks: { color:'#8892b0', font:{size:11} } },
+      },
+    },
+  });
+}
+
+/* 支払方法 */
+function renderPay() {
+  destroyChart('pay');
+  const map = {};
+  DATA.filter(isContracted).forEach(r => {
+    const p = r[C.支払方法] || '(未設定)';
+    map[p] = (map[p]||0) + 1;
+  });
+  const labs = Object.keys(map);
+  const COLORS = ['rgba(129,140,248,0.7)','rgba(244,114,182,0.7)','rgba(52,211,153,0.7)',
+                  'rgba(251,191,36,0.7)','rgba(56,189,248,0.7)','rgba(167,139,250,0.7)'];
+
+  CHARTS.pay = new Chart(document.getElementById('cPay'), {
+    type: 'doughnut',
+    data: {
+      labels: labs,
+      datasets: [{ data: labs.map(l=>map[l]), backgroundColor: COLORS, borderColor:'#141728', borderWidth:2 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { position:'right', labels: { boxWidth:10, padding:12, font:{size:11} } },
+        tooltip: tooltipOpts(),
+      },
+    },
+  });
+}
+
+/* 媒体別 */
+function renderMedia() {
+  destroyChart('media');
+  const map = {};
+  DATA.forEach(r => {
+    const m = r[C.媒体] || '(未設定)';
+    map[m] = (map[m]||0) + 1;
+  });
+  const labs = Object.keys(map).sort((a,b)=>map[b]-map[a]).slice(0,10);
+
+  CHARTS.media = new Chart(document.getElementById('cMedia'), {
+    type: 'bar',
+    data: {
+      labels: labs,
+      datasets: [{
+        label: 'CV数',
+        data: labs.map(l=>map[l]),
+        backgroundColor: labs.map((_,i) => `hsla(${220+i*22},70%,65%,0.65)`),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:false }, tooltip: tooltipOpts() },
+      scales: {
+        x: axisOpts(),
+        y: { ...axisOpts(), ticks: { color:'#8892b0', font:{size:11} } },
+      },
+    },
+  });
+}
+
+/* =====================================================================
+   TABLE
+   ===================================================================== */
+function renderTable() {
+  const map = {};
+  DATA.forEach(r => {
+    const s = r[C.店舗] || '(不明)';
+    if (!map[s]) map[s] = { cv:0, rsv:0, vis:0, con:0, ca:0, py:0 };
+    map[s].cv++;
+    if (isReserved(r))   map[s].rsv++;
+    if (isVisited(r))    map[s].vis++;
+    if (isContracted(r)) { map[s].con++; map[s].ca += pn(r[C.契約金額]); map[s].py += pn(r[C.入金額]); }
+  });
+
+  const rows = Object.entries(map).sort((a,b)=>b[1].cv-a[1].cv);
+  document.getElementById('tblCount').textContent = `${rows.length}店舗 / ${DATA.length.toLocaleString()}件`;
+
+  if (!rows.length) {
+    document.getElementById('tBody').innerHTML = `<tr><td colspan="10" class="empty">データがありません</td></tr>`;
+    return;
+  }
+
+  document.getElementById('tBody').innerHTML = rows.map(([name, d]) => {
+    const rr = d.cv  > 0 ? d.rsv/d.cv  : 0;
+    const vr = d.rsv > 0 ? d.vis/d.rsv : 0;
+    const cr = d.vis > 0 ? d.con/d.vis : 0;
+    return `<tr>
+      <td class="name">${name}</td>
+      <td class="num">${fmt(d.cv)}</td>
+      <td class="num">${fmt(d.rsv)}</td>
+      <td class="num">${chip(rr)}</td>
+      <td class="num">${fmt(d.vis)}</td>
+      <td class="num">${chip(vr)}</td>
+      <td class="num">${fmt(d.con)}</td>
+      <td class="num">${chip(cr)}</td>
+      <td class="yen">${yen(d.ca)}</td>
+      <td class="yen">${yen(d.py)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function chip(rate) {
+  const p = (rate*100).toFixed(1)+'%';
+  const cls = rate >= 0.7 ? 'chip-g' : rate >= 0.4 ? 'chip-b' : rate >= 0.2 ? 'chip-y' : rate > 0 ? 'chip-r' : 'chip-d';
+  return `<span class="chip ${cls}">${p}</span>`;
+}
+
+/* =====================================================================
+   BIZ TOGGLE
+   ===================================================================== */
+function setBiz(biz) {
+  BIZ = biz;
+  document.querySelectorAll('.tbtn').forEach(b => b.classList.toggle('active', b.dataset.biz === biz));
+  render();
+}
+
+/* =====================================================================
+   BANNER
+   ===================================================================== */
+function showBanner(msg) {
+  const el = document.getElementById('banner');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideBanner() {
+  document.getElementById('banner').classList.remove('show');
+}
+
+/* =====================================================================
+   UTILS
+   ===================================================================== */
+function v(id) { return document.getElementById(id).value; }
+function fmt(n) { return (n||0).toLocaleString('ja-JP'); }
+function yen(n) { return '¥' + (n||0).toLocaleString('ja-JP'); }
+function pct(n) { return ((n||0)*100).toFixed(1)+'%'; }
+function uniq(arr) { return [...new Set(arr)]; }
+
+/* =====================================================================
+   START
+   ===================================================================== */
+init();
+</script>
+</body>
+</html>
