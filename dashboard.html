@@ -469,13 +469,13 @@
     <div class="section-title">週次推移（水曜始まり）</div>
     <div class="grid-2">
       <div class="card fw">
-        <div class="ct">週次 来店数・契約数</div>
-        <div class="cs">水曜〜火曜を1週として集計</div>
+        <div class="ct">週次 契約率</div>
+        <div class="cs">水曜〜火曜を1週として集計（契約数 ÷ 来店数）</div>
         <div style="position:relative;height:260px;"><canvas id="cWeekly"></canvas></div>
       </div>
       <div class="card fw">
-        <div class="ct">週次 売上合計</div>
-        <div class="cs">週ごとの契約金額＋お試し額の合計</div>
+        <div class="ct">週次 アップセル率</div>
+        <div class="cs">週ごとのアップセル成功率（アップセル数 ÷ 契約数）</div>
         <div style="position:relative;height:220px;"><canvas id="cWeeklyRev"></canvas></div>
       </div>
     </div>
@@ -1217,20 +1217,23 @@ function renderWeeklyCharts() {
   });
   const weeks=[...allWeeks].sort();
   const labels=weeks.map(w=>{const p=w.split('/');return`${parseInt(p[1])}/${parseInt(p[2])}〜`});
-  const vDs=[],rDs=[];
+  const pctOpts = {callbacks:{label:ctx=>`${ctx.dataset.label}: ${(ctx.raw||0).toFixed(1)}%`}};
+  const pctAxis = {...ax(),min:0,ticks:{...ax().ticks,callback:v=>`${v}%`}};
+  const conRateDs=[],upsellRateDs=[];
   bizList.forEach(bz=>{
     const label=bz==='mcl'?'MCL':'STL';
-    vDs.push({label:`${label} 来店`,data:weeks.map(w=>(maps[bz][w]||{}).n||0),backgroundColor:COLS[bz].v+'70',borderColor:COLS[bz].v,borderWidth:1,borderRadius:4});
-    vDs.push({label:`${label} 契約`,data:weeks.map(w=>(maps[bz][w]||{}).con||0),backgroundColor:COLS[bz].c+'88',borderColor:COLS[bz].c,borderWidth:1,borderRadius:4});
-    rDs.push({label:`${label} 売上`,data:weeks.map(w=>(maps[bz][w]||{}).amt||0),backgroundColor:COLS[bz].r+'70',borderColor:COLS[bz].r,borderWidth:1,borderRadius:4});
+    conRateDs.push({label:`${label} 契約率`,data:weeks.map(w=>{const d=maps[bz][w]||{};return d.n>0?+(d.con/d.n*100).toFixed(1):null;}),
+      borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'20',tension:0.3,fill:true,pointRadius:3,borderWidth:2,spanGaps:true});
+    upsellRateDs.push({label:`${label} アップセル率`,data:weeks.map(w=>{const d=maps[bz][w]||{};return d.con>0?+(d.upsell/d.con*100).toFixed(1):null;}),
+      borderColor:COLS[bz].r,backgroundColor:COLS[bz].r+'20',tension:0.3,fill:true,pointRadius:3,borderWidth:2,spanGaps:true});
   });
-  CH.weekly=new Chart(document.getElementById('cWeekly'),{type:'bar',data:{labels,datasets:vDs},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:ax()}}});
-  CH.weeklyRev=new Chart(document.getElementById('cWeeklyRev'),{type:'bar',data:{labels,datasets:rDs},
+  CH.weekly=new Chart(document.getElementById('cWeekly'),{type:'line',data:{labels,datasets:conRateDs},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,...pctOpts}},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:pctAxis}}});
+  CH.weeklyRev=new Chart(document.getElementById('cWeeklyRev'),{type:'line',data:{labels,datasets:upsellRateDs},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ¥${ctx.raw?.toLocaleString('ja-JP')}`}}},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:{...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/10000).toFixed(0)}万`}}}}});
+      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,...pctOpts}},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:pctAxis}}});
 }
 
 /* ===== 社員別パフォーマンステーブル ===== */
