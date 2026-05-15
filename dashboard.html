@@ -779,13 +779,16 @@ function renderUpsellKPI() {
     const isMCL = biz === 'mcl';
     const accentColor = isMCL ? 'var(--mcl)' : 'var(--stl)';
     const bizLabel = isMCL ? '♂ MCL' : '♀ STL';
-    const cpNote = isMCL ? '3,300 / 7,800 / 9,900 CP' : '9,900 CP';
+    const cpNote = isMCL ? '契約金額+お試し額≥¥15,000' : '9,900 CP';
+    const tooltip = isMCL
+      ? '契約金額+お試し額≥¥15,000の契約数\n÷ 契約数'
+      : '9,900CPで来店\n契約金額+お試し額≥¥15,000\n÷ 契約数';
     const rateClass = upsellRate >= 0.5 ? 'g' : upsellRate >= 0.3 ? 'b' : 'r';
 
     return [
       `<div class="kpi" style="border-top:2px solid ${accentColor};">
         <div class="kpi-label" style="color:${accentColor};font-weight:700;">${bizLabel} アップセル率
-          <span class="kpi-help" data-tooltip="${cpNote}で来店\n契約金額+お試し額≥¥15,000\n÷ 契約数">?</span>
+          <span class="kpi-help" data-tooltip="${tooltip}">?</span>
         </div>
         <div class="kpi-val">${pct(upsellRate)}</div>
         <div class="kpi-rate ${rateClass}" style="margin-top:6px;">${fmt(upsellCon)} / ${fmt(con)} 件</div>
@@ -999,24 +1002,25 @@ function renderKPI(k) {
 }
 
 /* ===== 来店結果バー ===== */
-// アップセル判定: MCL=3300/7800/9900CP、STL=9900CP かつ 契約金額+お試し額≥15,000
+// アップセル判定: MCL=契約金額+お試し額≥15,000、STL=9900CP かつ 契約金額+お試し額≥15,000
 function isUpsell(r) {
   if (!isContract(r)) return false;
-  const cp = r[C.CP] || '';
-  const cpMatch = r._biz === 'mcl'
-    ? /3[,.]?300|7[,.]?800|9[,.]?900/.test(cp)
-    : /9[,.]?900/.test(cp);
-  if (!cpMatch) return false;
+  if (r._biz === 'stl') {
+    const cp = r[C.CP] || '';
+    if (!/9[,.]?900/.test(cp)) return false;
+  }
   return pn(r[C.契約金額]) + pn(r[C.お試し額]) >= 15000;
 }
 
 // 来店フィルタ: 来店状況=「来店」かつ支払方法≠「自社割賦」
 const isVisit = r => r[C.来店状況]==='来店' && r[C.支払方法]!=='自社割賦';
 
-// 【MCL】定義タブ準拠の契約ステータス
+// 【MCL】契約ステータス（Z列）: 全角・半角+両対応
 const MCL_CONTRACT = new Set([
-  'CP契約','CP契約＋お試し','お試し','クーオフ','契約','契約+CP契約',
-  '契約＋お試し','契約＋パッチテスト','都度','契約＋都度','クーオフ＋お試し3回',
+  '契約','契約+CP契約','契約＋CP契約',
+  '契約+お試し','契約＋お試し',
+  'CP契約','CP契約+お試し','CP契約＋お試し',
+  'お試し',
 ]);
 // 【STL】定義タブ準拠の契約ステータス
 const STL_CONTRACT = new Set([
