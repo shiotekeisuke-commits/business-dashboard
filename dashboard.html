@@ -251,6 +251,46 @@
       .kpi-val { font-size:24px; }
       .h-updated { display:none; }
     }
+
+    /* ===== SUMMARY V2 ===== */
+    .sum2-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+    .sum2-card { background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:20px 24px; box-shadow:var(--shadow-sm); }
+    .sum2-card.mcl-card { border-top:3px solid var(--mcl); }
+    .sum2-card.stl-card { border-top:3px solid var(--stl); }
+    .sum2-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .sum2-biz { font-size:12px; font-weight:700; padding:4px 12px; border-radius:20px; }
+    .sum2-biz.mcl { background:var(--mcl-light); color:var(--mcl); }
+    .sum2-biz.stl { background:var(--stl-light); color:var(--stl); }
+    .sum2-month { font-size:11px; color:var(--text2); font-weight:600; }
+    .sum2-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+    .sum2-kpi { display:flex; flex-direction:column; gap:2px; }
+    .sum2-kpi-label { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:0.08em; font-weight:600; }
+    .sum2-kpi-val { font-size:20px; font-weight:800; color:var(--text0); line-height:1.15; }
+    .sum2-kpi-val.lg { font-size:24px; }
+    .mom { display:inline-flex; align-items:center; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; margin-left:4px; }
+    .mom.up { background:#ecfdf5; color:var(--green); }
+    .mom.dn { background:#fef2f2; color:var(--red); }
+    .mom.flat { background:var(--bg0); color:var(--text2); }
+    .sum2-divider { height:1px; background:var(--border); margin:14px 0; }
+    .sum2-bars { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+    .goal-row { display:flex; align-items:center; gap:8px; }
+    .goal-label { font-size:10px; color:var(--text1); font-weight:600; min-width:64px; }
+    .goal-track { flex:1; height:22px; background:var(--bg0); border-radius:6px; overflow:hidden; position:relative; }
+    .goal-fill { height:100%; border-radius:6px; display:flex; align-items:center; padding:0 8px; font-size:10px; font-weight:700; color:#fff; transition:width 0.8s cubic-bezier(0.22,1,0.36,1); }
+    .goal-fill.mcl-fill { background:linear-gradient(90deg,#1d4ed8,#4f46e5); }
+    .goal-fill.stl-fill { background:linear-gradient(90deg,#be185d,#9333ea); }
+    .goal-meta { font-size:10px; color:var(--text2); min-width:70px; text-align:right; }
+    .goal-edit-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px; background:var(--bg0); border-radius:var(--rs); padding:10px 14px; border:1px solid var(--border); }
+    .goal-edit-bar label { font-size:10px; color:var(--text1); font-weight:600; }
+    .goal-input { width:90px; background:#fff; border:1px solid var(--border); color:var(--text0); padding:4px 8px; border-radius:6px; font-size:12px; font-family:inherit; }
+    .goal-input:focus { outline:none; border-color:var(--mcl); }
+    .goal-save { background:var(--mcl); color:#fff; border:none; padding:5px 14px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
+    .goal-save:hover { opacity:0.88; }
+    .sum2-upsell { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .sum2-up-item { background:var(--bg0); border-radius:var(--rs); padding:10px 14px; }
+    .sum2-up-label { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:0.07em; font-weight:600; }
+    .sum2-up-val { font-size:18px; font-weight:800; color:var(--purple); }
+    @media (max-width:960px) { .sum2-grid { grid-template-columns:1fr; } .sum2-kpis { grid-template-columns:repeat(2,1fr); } }
   </style>
 </head>
 <body>
@@ -278,9 +318,6 @@
     <button class="snav-link" onclick="scrollTo('secToday')">🔴 本日</button>
     <button class="snav-link" onclick="scrollTo('secSummary')">📊 今月サマリー</button>
     <div class="snav-sep"></div>
-    <button class="snav-link" onclick="scrollTo('secKPI')">📈 KPI</button>
-    <button class="snav-link" onclick="scrollTo('secUpsell')">⬆ アップセル</button>
-    <button class="snav-link" onclick="scrollTo('secVisit')">🚶 来店結果</button>
     <button class="snav-link" onclick="scrollTo('secDaily')">📅 日別推移</button>
     <button class="snav-link" onclick="scrollTo('secWeekly')">📆 週次推移</button>
     <button class="snav-link" onclick="scrollTo('secStore')">🏪 店舗・CP</button>
@@ -413,39 +450,16 @@
   <!-- ===== 今月サマリー ===== -->
   <div id="secSummary">
     <div class="section-title">今月のサマリー</div>
-    <div class="summary-banner" id="summaryBanner">
-      <div class="loading" style="height:70px;"><div class="spin"></div></div>
+    <div class="goal-edit-bar">
+      <span style="font-size:11px;font-weight:700;color:var(--text1);">月次目標</span>
+      <label>MCL 来店目標 <input class="goal-input" id="gMclVisit" type="number" placeholder="例: 400"></label>
+      <label>MCL 契約目標 <input class="goal-input" id="gMclCon" type="number" placeholder="例: 280"></label>
+      <label>STL 来店目標 <input class="goal-input" id="gStlVisit" type="number" placeholder="例: 200"></label>
+      <label>STL 契約目標 <input class="goal-input" id="gStlCon" type="number" placeholder="例: 140"></label>
+      <button class="goal-save" onclick="saveGoals()">保存</button>
     </div>
-  </div>
-
-  <!-- ===== KPI ===== -->
-  <div id="secKPI">
-    <div class="section-title">KPI概要</div>
-    <div class="kpi-row" id="kpiRow">
-      <div class="loading" style="height:90px;"><div class="spin"></div>読み込み中…</div>
-    </div>
-  </div>
-
-  <!-- ===== アップセル ===== -->
-  <div id="secUpsell">
-    <div class="section-title">アップセル指標</div>
-    <div id="upsellRow" class="kpi-row" style="grid-template-columns:repeat(4,1fr);"></div>
-  </div>
-
-  <!-- ===== 来店結果 ===== -->
-  <div id="secVisit">
-    <div class="section-title">来店結果</div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="ct">来店結果内訳</div>
-        <div class="cs">契約・お試し・CA・未記入の件数と比率</div>
-        <div class="result-bars" id="resultBars"><div class="loading"><div class="spin"></div></div></div>
-      </div>
-      <div class="card">
-        <div class="ct">月別 来店・契約数</div>
-        <div class="cs">月ごとの来店数と契約数の推移</div>
-        <div style="position:relative;height:220px;"><canvas id="cTrend"></canvas></div>
-      </div>
+    <div class="sum2-grid" id="summaryBanner">
+      <div class="loading" style="height:120px;"><div class="spin"></div></div>
     </div>
   </div>
 
@@ -500,20 +514,13 @@
     </div>
   </div>
 
-  <!-- ===== 担当者 / 支払 ===== -->
+  <!-- ===== 担当者 ===== -->
   <div id="secStaff">
-    <div class="section-title">担当者 / 支払</div>
-    <div class="grid-3">
-      <div class="card fw" style="grid-column:1/3;">
-        <div class="ct">担当者別成績</div>
-        <div class="cs">担当者ごとの来店数・契約数</div>
-        <div style="position:relative;height:240px;"><canvas id="cStaffChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="ct">支払方法（契約者）</div>
-        <div class="cs">契約者の支払方法の分布</div>
-        <div style="position:relative;height:240px;"><canvas id="cPay"></canvas></div>
-      </div>
+    <div class="section-title">担当者別</div>
+    <div class="card">
+      <div class="ct">担当者別成績</div>
+      <div class="cs">担当者ごとの来店数・契約数</div>
+      <div style="position:relative;height:240px;"><canvas id="cStaffChart"></canvas></div>
     </div>
   </div>
 
@@ -708,9 +715,8 @@ function fetchStaffSheet(s) {
 
 /* ===== INIT ===== */
 async function init() {
-  document.getElementById('kpiRow').innerHTML = `<div class="loading" style="height:90px;"><div class="spin"></div>データ読み込み中…</div>`;
   document.getElementById('dataStatus').innerHTML = '';
-  document.getElementById('summaryBanner').innerHTML = `<div class="loading" style="height:70px;"><div class="spin"></div></div>`;
+  document.getElementById('summaryBanner').innerHTML = `<div class="loading" style="height:120px;"><div class="spin"></div></div>`;
 
   const [visitResults, dailyResults, staffResults] = await Promise.all([
     Promise.all(VISIT_SHEETS.map(s => fetchVisitSheet(s).then(rows => ({...s, rows, ok:rows.length>0})))),
@@ -772,68 +778,17 @@ function render() {
   badge.textContent=`${DATA.length.toLocaleString()}件`;
   badge.className='h-badge'+(BIZ==='mcl'?' mcl-b':BIZ==='stl'?' stl-b':'');
 
-  const kpis=calcKPI(DATA);
   renderTodaySummary();
   renderSummary();
-  renderUpsellKPI();
-  renderKPI(kpis);
-  renderResultBars(kpis);
-  renderMonthlyTrend();
   renderDailyCharts();
   renderWeeklyCharts();
   renderStore();
   renderCP();
   renderStaffChart();
-  renderPay();
   renderStaffPerfTable();
-  renderTable(kpis);
+  renderTable(calcKPI(DATA));
 }
 
-/* ===== アップセル指標 ===== */
-function renderUpsellKPI() {
-  const bizList = BIZ === 'both' ? ['mcl','stl'] : [BIZ];
-
-  const cards = bizList.flatMap(biz => {
-    const rows = DATA.filter(r => r._biz === biz);
-    const visits = rows.filter(isVisit);
-    const con = visits.filter(isContract).length;
-    const upsellRows = visits.filter(isUpsell);
-    const upsellCon = upsellRows.length;
-    const upsellAmt = upsellRows.reduce((s,r)=>s+pn(r[C.契約金額])+pn(r[C.お試し額]),0);
-    const upsellRate = con > 0 ? upsellCon / con : 0;
-    const upsellAvg  = upsellCon > 0 ? upsellAmt / upsellCon : 0;
-    const isMCL = biz === 'mcl';
-    const accentColor = isMCL ? 'var(--mcl)' : 'var(--stl)';
-    const bizLabel = isMCL ? '♂ MCL' : '♀ STL';
-    const cpNote = isMCL ? '契約金額+お試し額≥¥15,000' : '9,900 CP';
-    const tooltip = isMCL
-      ? '契約金額+お試し額≥¥15,000の契約数\n÷ 契約数'
-      : '9,900CPで来店\n契約金額+お試し額≥¥15,000\n÷ 契約数';
-    const rateClass = upsellRate >= 0.5 ? 'g' : upsellRate >= 0.3 ? 'b' : 'r';
-
-    return [
-      `<div class="kpi" style="border-top:2px solid ${accentColor};">
-        <div class="kpi-label" style="color:${accentColor};font-weight:700;">${bizLabel} アップセル率
-          <span class="kpi-help" data-tooltip="${tooltip}">?</span>
-        </div>
-        <div class="kpi-val">${pct(upsellRate)}</div>
-        <div class="kpi-rate ${rateClass}" style="margin-top:6px;">${fmt(upsellCon)} / ${fmt(con)} 件</div>
-        <div class="kpi-sub" style="margin-top:4px;">${cpNote}</div>
-      </div>`,
-      `<div class="kpi" style="border-top:2px solid ${accentColor};">
-        <div class="kpi-label" style="color:${accentColor};font-weight:700;">${bizLabel} アップセル平均単価
-          <span class="kpi-help" data-tooltip="アップセル契約の\n（契約金額+お試し額）の平均">?</span>
-        </div>
-        <div class="kpi-val sm">${yen(Math.round(upsellAvg))}</div>
-        <div class="kpi-sub">契約金額 + お試し額 の平均</div>
-      </div>`
-    ];
-  });
-
-  const el = document.getElementById('upsellRow');
-  el.innerHTML = cards.join('');
-  el.style.gridTemplateColumns = `repeat(${cards.length},1fr)`;
-}
 
 /* ===== 本日のサマリー ===== */
 function renderTodaySummary() {
@@ -912,69 +867,115 @@ function renderTodaySummary() {
 
 /* ===== 今月サマリー ===== */
 function renderSummary() {
-  // 最新月を特定（月フィルターが選択されていればそれ、なければ最後の月）
   const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b));
   const selectedMonth = v('fMonth');
   const targetMonth = selectedMonth || months[months.length - 1];
+  const prevMonth = months[months.indexOf(targetMonth)-1] || null;
 
   const bizList = BIZ === 'both' ? ['mcl','stl'] : [BIZ];
 
+  function momChip(cur, prev) {
+    if (prev == null || prev === 0) return '';
+    const diff = (cur - prev) / prev * 100;
+    const sign = diff > 0 ? '▲' : diff < 0 ? '▼' : '±';
+    const cls  = diff > 0 ? 'up' : diff < 0 ? 'dn' : 'flat';
+    return `<span class="mom ${cls}">${sign}${Math.abs(diff).toFixed(1)}%</span>`;
+  }
+  function momChipAbs(cur, prev) {
+    if (prev == null) return '';
+    const diff = cur - prev;
+    const sign = diff > 0 ? '▲' : diff < 0 ? '▼' : '±';
+    const cls  = diff > 0 ? 'up' : diff < 0 ? 'dn' : 'flat';
+    return `<span class="mom ${cls}">${sign}${Math.abs(diff).toFixed(1)}%</span>`;
+  }
+
+  const goals = loadGoals();
+
   const cards = bizList.map(biz => {
-    const rows = RAW.filter(r => r._biz === biz && r._month === targetMonth);
-    const k = calcKPI(rows);
-    const isMCL = biz === 'mcl';
-    const label = isMCL ? 'MCL メンズ脱毛' : 'STL レディース脱毛';
+    const rows  = RAW.filter(r => r._biz===biz && r._month===targetMonth);
+    const rowsP = prevMonth ? RAW.filter(r => r._biz===biz && r._month===prevMonth) : [];
+    const k  = calcKPI(rows);
+    const kP = rowsP.length ? calcKPI(rowsP) : null;
+
+    const isMCL = biz==='mcl';
     const cls = isMCL ? 'mcl-card' : 'stl-card';
     const bizCls = isMCL ? 'mcl' : 'stl';
-    const accentV = isMCL ? 'accent-blue' : 'accent-pink';
-    const rate = k.conRate;
-    const rateClass = rate >= 0.7 ? 'accent-green' : rate >= 0.4 ? 'accent-green' : rate >= 0.2 ? 'accent-amber' : 'accent-amber';
-    return `
-      <div class="sb-card ${cls}">
-        <span class="sb-biz ${bizCls}">${label}</span>
-        <div class="sb-stats">
-          <div class="sb-stat">
-            <span class="sb-stat-label">来店数</span>
-            <span class="sb-stat-val ${accentV}">${fmt(k.n)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">契約数</span>
-            <span class="sb-stat-val accent-green">${fmt(k.con)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">契約率</span>
-            <span class="sb-stat-val ${rateClass}">${pct(rate)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">契約単価</span>
-            <span class="sb-stat-val accent-amber" style="font-size:15px">${yenCeil(k.avgUnit)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">CPI</span>
-            <span class="sb-stat-val accent-green" style="font-size:15px">${yenCeil(k.cpi)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">アップセル率</span>
-            <span class="sb-stat-val" style="color:var(--purple)">${pct(k.upsellRate)}</span>
-          </div>
-          <div class="sb-stat">
-            <span class="sb-stat-label">アップセル単価</span>
-            <span class="sb-stat-val" style="font-size:15px;color:var(--purple)">${k.upsellCon>0?yenCeil(k.upsellAvg):'–'}</span>
-          </div>
+    const fillCls = isMCL ? 'mcl-fill' : 'stl-fill';
+    const label = isMCL ? '♂ MCL' : '♀ STL';
+
+    const gVisit = goals[biz]?.visit || 0;
+    const gCon   = goals[biz]?.con   || 0;
+
+    const max=k.n||1;
+    const bars = [
+      {label:'来店', n:k.n, color:'linear-gradient(90deg,#1d4ed8,#4f46e5)'},
+      {label:'契約', n:k.con, color:'linear-gradient(90deg,#059669,#10b981)'},
+      {label:'└ お試し', n:k.trial, color:'rgba(5,150,105,0.4)', sub:true},
+      {label:'CAのみ', n:k.ca, color:'linear-gradient(90deg,#dc2626,#e11d48)'},
+    ].map(s=>`
+      <div class="rb" style="${s.sub?'opacity:0.85;padding-left:12px':''}">
+        <div class="rb-label" style="font-size:${s.sub?'10':'11'}px;${s.sub?'color:var(--text2)':''}">${s.label}</div>
+        <div class="rb-track"><div class="rb-fill" style="width:${Math.max(s.n/max*100,0).toFixed(1)}%;background:${s.color}">${s.n>0&&s.n/max>0.08?fmt(s.n):''}</div></div>
+        <div class="rb-right"><div class="rb-count" style="font-size:${s.sub?'14':'17'}px">${fmt(s.n)}</div><div class="rb-pct">${pct(s.n/max)}</div></div>
+      </div>`).join('');
+
+    function goalBar(label, actual, target, fillCls) {
+      if (!target) return '';
+      const pctVal = Math.min(actual/target*100,100);
+      const over = actual > target;
+      return `<div class="goal-row">
+        <span class="goal-label">${label}</span>
+        <div class="goal-track">
+          <div class="goal-fill ${fillCls}" style="width:${pctVal.toFixed(1)}%">${pctVal>=15?fmt(actual)+'件':''}</div>
         </div>
-        <span class="sb-month">${targetMonth}</span>
+        <span class="goal-meta" style="color:${over?'var(--green)':'var(--text2)'}">${fmt(actual)}/${fmt(target)} ${over?'✓':''}</span>
+      </div>`;
+    }
+
+    return `
+    <div class="sum2-card ${cls}">
+      <div class="sum2-header">
+        <span class="sum2-biz ${bizCls}">${label}</span>
+        <span class="sum2-month">${targetMonth}</span>
       </div>
-    `;
+      <div class="sum2-kpis">
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">来店数</span>
+          <span class="sum2-kpi-val lg" style="color:${isMCL?'var(--mcl)':'var(--stl)'}">${fmt(k.n)}${kP?momChip(k.n,kP.n):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">契約数</span>
+          <span class="sum2-kpi-val lg" style="color:var(--green)">${fmt(k.con)}${kP?momChip(k.con,kP.con):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">契約率</span>
+          <span class="sum2-kpi-val">${pct(k.conRate)}${kP?momChipAbs(k.conRate*100,kP.conRate*100):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">契約単価</span>
+          <span class="sum2-kpi-val" style="color:var(--amber)">${yenCeil(k.avgUnit)}${kP?momChip(k.avgUnit,kP.avgUnit):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">CPI</span>
+          <span class="sum2-kpi-val" style="color:var(--green)">${yenCeil(k.cpi)}${kP?momChip(k.cpi,kP.cpi):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">アップセル率</span>
+          <span class="sum2-kpi-val" style="color:var(--purple)">${pct(k.upsellRate)}${kP?momChipAbs(k.upsellRate*100,kP.upsellRate*100):''}</span>
+        </div>
+        <div class="sum2-kpi">
+          <span class="sum2-kpi-label">アップセル単価</span>
+          <span class="sum2-kpi-val" style="color:var(--purple)">${k.upsellCon>0?yenCeil(k.upsellAvg):'–'}${kP&&kP.upsellCon>0?momChip(k.upsellAvg,kP.upsellAvg):''}</span>
+        </div>
+      </div>
+      <div class="sum2-divider"></div>
+      <div class="sum2-bars">${bars}</div>
+      ${(gVisit||gCon)?`<div class="sum2-divider"></div><div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em;">目標対比</div><div style="display:flex;flex-direction:column;gap:6px;">${goalBar('来店',k.n,gVisit,fillCls)}${goalBar('契約',k.con,gCon,fillCls)}</div>`:''}
+    </div>`;
   });
 
   document.getElementById('summaryBanner').innerHTML = cards.join('');
-
-  // 両事業で1つしかない場合は全幅に
-  if (bizList.length === 1) {
-    document.getElementById('summaryBanner').style.gridTemplateColumns = '1fr';
-  } else {
-    document.getElementById('summaryBanner').style.gridTemplateColumns = '';
-  }
+  document.getElementById('summaryBanner').style.gridTemplateColumns = bizList.length===1?'1fr':'';
 }
 
 /* ===== KPI ===== */
@@ -996,41 +997,6 @@ function calcKPI(rows) {
     conRate:n>0?con/n:0, trialRate:n>0?trial/n:0, caRate:n>0?ca/n:0,
     avgUnit, cpi,
     upsellCon, upsellRate:con>0?upsellCon/con:0, upsellAvg:upsellCon>0?upsellAmt/upsellCon:0 };
-}
-
-function renderKPI(k) {
-  document.getElementById('kpiRow').innerHTML = `
-    <div class="kpi c1">
-      <div class="kpi-label">🚶 来店数 <span class="kpi-help" data-tooltip="フィルター条件に一致した\n総来店件数">?</span></div>
-      <div class="kpi-val">${fmt(k.n)}</div>
-      <div class="kpi-sub">総来店件数</div>
-    </div>
-    <div class="kpi c2">
-      <div class="kpi-label">✅ 契約数 <span class="kpi-help" data-tooltip="来店後にコースを\n契約したお客様の数">?</span></div>
-      <div class="kpi-val">${fmt(k.con)}</div>
-      <div class="kpi-rate g">契約率 ${pct(k.conRate)}</div>
-    </div>
-    <div class="kpi c3">
-      <div class="kpi-label">🔖 うちお試し系 <span class="kpi-help" data-tooltip="契約数のうちお試し・お試し3回を含む契約\n（契約数に含まれる）">?</span></div>
-      <div class="kpi-val">${fmt(k.trial)}</div>
-      <div class="kpi-rate b">契約内 ${pct(k.con>0?k.trial/k.con:0)}</div>
-    </div>
-    <div class="kpi c4">
-      <div class="kpi-label">💬 CAのみ <span class="kpi-help" data-tooltip="来店したが契約に至らなかった数\n（カウンセリングのみで終了）">?</span></div>
-      <div class="kpi-val">${fmt(k.ca)}</div>
-      <div class="kpi-rate r">${pct(k.caRate)}</div>
-    </div>
-    <div class="kpi c5">
-      <div class="kpi-label">💰 契約金額合計 <span class="kpi-help" data-tooltip="契約者の契約金額合計\n入金額は実際の回収額">?</span></div>
-      <div class="kpi-val sm">${yen(k.conAmt)}</div>
-      <div class="kpi-sub">入金 ${yen(k.payAmt)}</div>
-    </div>
-    <div class="kpi c6">
-      <div class="kpi-label">⚠️ 未収金 <span class="kpi-help" data-tooltip="契約金額 − 入金額\nまだ回収できていない金額\n0円が理想">?</span></div>
-      <div class="kpi-val sm" style="color:${k.unpaid>0?'#fbbf24':'#34d399'}">${yen(k.unpaid)}</div>
-      <div class="kpi-sub">契約金額 − 入金額</div>
-    </div>
-  `;
 }
 
 /* ===== 来店結果バー ===== */
@@ -1065,44 +1031,12 @@ const isTrialType = r => isContract(r) && (r[C.契約状況]||'').includes('お�
 const isCAOnly    = r => isVisit(r) && (r[C.契約状況]||'') === 'CAのみ';
 const isUnknown   = r => isVisit(r) && !contractSet(r).has(r[C.契約状況]||'') && (r[C.契約状況]||'') !== 'CAのみ';
 
-function renderResultBars(k) {
-  const max=k.n||1;
-  const steps=[
-    {label:'来店',       n:k.n,     color:'linear-gradient(90deg,#818cf8,#60a5fa)', base:true},
-    {label:'契約',       n:k.con,   color:'linear-gradient(90deg,#34d399,#10b981)'},
-    {label:'うちお試し', n:k.trial, color:'linear-gradient(90deg,#10b981,#059669)', sub:true},
-    {label:'CAのみ',     n:k.ca,    color:'linear-gradient(90deg,#f87171,#e11d48)'},
-    {label:'未記入',     n:k.unk,   color:'rgba(61,72,112,0.5)'},
-  ];
-  document.getElementById('resultBars').innerHTML = steps.map(s=>`
-    <div class="rb" style="${s.sub?'opacity:0.8;padding-left:16px':''}">
-      <div class="rb-label" style="${s.sub?'font-size:10px;color:var(--text2)':''}">
-        ${s.sub?'└ ':''}${s.label}
-      </div>
-      <div class="rb-track"><div class="rb-fill" style="width:${Math.max(s.n/max*100,0).toFixed(1)}%;background:${s.color}">${s.n>0&&s.n/max>0.08?fmt(s.n):''}</div></div>
-      <div class="rb-right"><div class="rb-count" style="${s.sub?'font-size:14px':''}">  ${fmt(s.n)}</div><div class="rb-pct">${s.base?'100%':pct(s.n/max)}</div></div>
-    </div>`).join('');
-}
-
 /* ===== チャート共通 ===== */
 Chart.defaults.color='#64748b';
 Chart.defaults.font={family:"'Hiragino Kaku Gothic ProN','Meiryo UI',sans-serif",size:11};
 function ax(ex={}) { return {ticks:{color:'#94a3b8',...(ex.ticks||{})},grid:{color:'rgba(15,23,42,0.06)',...(ex.grid||{})}}; }
 const TP={backgroundColor:'#1e293b',titleColor:'#f1f5f9',bodyColor:'#94a3b8',borderColor:'rgba(15,23,42,0.15)',borderWidth:1,padding:12};
 function dc(key){if(CH[key]){CH[key].destroy();delete CH[key];}}
-
-/* 月別推移 */
-function renderMonthlyTrend() {
-  dc('trend');
-  const map={};
-  DATA.filter(isVisit).forEach(r=>{const k=r._month||'不明';if(!map[k])map[k]={n:0,con:0};map[k].n++;if(isContract(r))map[k].con++;});
-  const keys=[...new Set(DATA.map(r=>r._month).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b)).filter(m=>map[m]);
-  CH.trend=new Chart(document.getElementById('cTrend'),{type:'bar',data:{labels:keys,
-    datasets:[
-      {label:'来店数',data:keys.map(k=>(map[k]||{n:0}).n),backgroundColor:'rgba(29,78,216,0.18)',borderColor:'#1d4ed8',borderWidth:1.5,borderRadius:6},
-      {label:'契約数',data:keys.map(k=>(map[k]||{con:0}).con),backgroundColor:'rgba(5,150,105,0.55)',borderColor:'#059669',borderWidth:1.5,borderRadius:6},
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},scales:{x:ax(),y:ax()}}});
-}
 
 /* 日別チャート */
 function renderDailyCharts() {
@@ -1157,14 +1091,28 @@ function renderStore() {
 /* CP別 */
 function renderCP() {
   dc('cp');
+  function normCP(name) {
+    return name
+      .replace(/[（(][^）)]*[）)]/g,'')
+      .replace(/[Ａ-Ｚ]$/u,'')
+      .replace(/[A-Z]$/,'')
+      .replace(/\s*\d+$/,'')
+      .trim() || name;
+  }
   const map={};
-  DATA.filter(isVisit).forEach(r=>{const cp=r[C.CP]||'(未設定)';if(!map[cp])map[cp]={n:0,con:0};map[cp].n++;if(isContract(r))map[cp].con++;});
-  const labs=Object.keys(map).sort((a,b)=>map[b].n-map[a].n).slice(0,12);
+  DATA.filter(isVisit).forEach(r=>{
+    const raw=r[C.CP]||'(未設定)';
+    const key=normCP(raw);
+    if(!map[key])map[key]={n:0,con:0};
+    map[key].n++;
+    if(isContract(r))map[key].con++;
+  });
+  const labs=Object.keys(map).sort((a,b)=>map[b].n-map[a].n).slice(0,15);
   CH.cp=new Chart(document.getElementById('cCP'),{type:'bar',data:{labels:labs,datasets:[
     {label:'来店',data:labs.map(l=>map[l].n),backgroundColor:'rgba(29,78,216,0.18)',borderColor:'#1d4ed8',borderWidth:1,borderRadius:4},
     {label:'契約',data:labs.map(l=>map[l].con),backgroundColor:'rgba(5,150,105,0.55)',borderColor:'#059669',borderWidth:1,borderRadius:4},
   ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
-    scales:{x:ax(),y:{...ax(),ticks:{color:'#8892b0',font:{size:10}}}}}});
+    scales:{x:ax(),y:{...ax(),ticks:{color:'#475569',font:{size:10}}}}}});
 }
 
 /* 担当者別 */
@@ -1177,17 +1125,6 @@ function renderStaffChart() {
     {label:'来店',data:labs.map(l=>map[l].n),backgroundColor:'rgba(29,78,216,0.18)',borderColor:'#1d4ed8',borderWidth:1,borderRadius:5},
     {label:'契約',data:labs.map(l=>map[l].con),backgroundColor:'rgba(5,150,105,0.55)',borderColor:'#059669',borderWidth:1,borderRadius:5},
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},scales:{x:ax(),y:ax()}}});
-}
-
-/* 支払方法 */
-function renderPay() {
-  dc('pay');
-  const map={};
-  DATA.filter(isContract).forEach(r=>{const p=r[C.支払方法]||'(未設定)';map[p]=(map[p]||0)+1;});
-  const labs=Object.keys(map);
-  const COLS=['rgba(29,78,216,0.75)','rgba(5,150,105,0.75)','rgba(217,119,6,0.75)','rgba(190,24,93,0.75)','rgba(124,58,237,,0.75)','rgba(234,88,12,0.75)'];
-  CH.pay=new Chart(document.getElementById('cPay'),{type:'doughnut',data:{labels:labs,datasets:[{data:labs.map(l=>map[l]),backgroundColor:COLS,borderColor:'#ffffff',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:10,font:{size:11}}},tooltip:TP}}});
 }
 
 /* ===== 週次チャート（水曜始まり） ===== */
@@ -1314,6 +1251,26 @@ function scrollTo(id) {
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
+/* ===== 目標管理 ===== */
+function loadGoals() {
+  try { return JSON.parse(localStorage.getItem('bizGoals')||'{}'); } catch(e) { return {}; }
+}
+function saveGoals() {
+  const g = {
+    mcl: { visit: parseInt(document.getElementById('gMclVisit').value)||0, con: parseInt(document.getElementById('gMclCon').value)||0 },
+    stl: { visit: parseInt(document.getElementById('gStlVisit').value)||0, con: parseInt(document.getElementById('gStlCon').value)||0 },
+  };
+  localStorage.setItem('bizGoals', JSON.stringify(g));
+  renderSummary();
+}
+function initGoalInputs() {
+  const g = loadGoals();
+  if(g.mcl?.visit) document.getElementById('gMclVisit').value = g.mcl.visit;
+  if(g.mcl?.con)   document.getElementById('gMclCon').value   = g.mcl.con;
+  if(g.stl?.visit) document.getElementById('gStlVisit').value = g.stl.visit;
+  if(g.stl?.con)   document.getElementById('gStlCon').value   = g.stl.con;
+}
+
 /* ===== Utils ===== */
 function pn(s) { if(!s)return 0; const n=parseInt(String(s).replace(/[^\d\-]/g,''),10); return isNaN(n)?0:n; }
 function v(id){return document.getElementById(id).value;}
@@ -1325,6 +1282,7 @@ function uniq(a){return[...new Set(a)];}
 function setBiz(biz){BIZ=biz;document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.biz===biz));render();}
 
 init();
+initGoalInputs();
 </script>
 </body>
 </html>
