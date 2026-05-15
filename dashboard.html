@@ -851,8 +851,8 @@ function renderTodaySummary() {
     }
 
     const k = calcKPI(rows);
-    const rate = k.conRate;
-    const rateClass = rate >= 0.6 ? 'cg' : rate >= 0.35 ? 'cb' : rate >= 0.15 ? 'cy' : 'cr';
+    const avgUnit = k.con > 0 ? k.conAmt / k.con : 0;
+    const cpi = k.n > 0 ? k.conAmt / k.n : 0;
 
     return `<div class="today-card ${cls}">
       <span class="sb-biz ${isMCL?'mcl':'stl'}" style="flex-shrink:0">${bizLabel}</span>
@@ -864,19 +864,18 @@ function renderTodaySummary() {
         <div class="today-kpi">
           <span class="today-kpi-label">契約数</span>
           <span class="today-kpi-val big" style="color:var(--green)">${fmt(k.con)}</span>
-          <span class="today-rate ${rateClass}">${pct(rate)}</span>
         </div>
         <div class="today-kpi">
-          <span class="today-kpi-label">お試し</span>
-          <span class="today-kpi-val" style="color:var(--amber)">${fmt(k.trial)}</span>
+          <span class="today-kpi-label">アップセル数</span>
+          <span class="today-kpi-val big" style="color:var(--purple)">${fmt(k.upsellCon)}</span>
         </div>
         <div class="today-kpi">
-          <span class="today-kpi-label">CAのみ</span>
-          <span class="today-kpi-val" style="color:var(--red)">${fmt(k.ca)}</span>
+          <span class="today-kpi-label">契約単価</span>
+          <span class="today-kpi-val" style="color:var(--amber);font-size:16px">${yen(avgUnit)}</span>
         </div>
         <div class="today-kpi">
-          <span class="today-kpi-label">契約金額</span>
-          <span class="today-kpi-val" style="color:var(--green);font-size:15px">${yen(k.conAmt)}</span>
+          <span class="today-kpi-label">CPI</span>
+          <span class="today-kpi-val" style="color:var(--green);font-size:16px">${yen(cpi)}</span>
         </div>
       </div>
     </div>`;
