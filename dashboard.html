@@ -943,16 +943,20 @@ function renderSummary() {
             <span class="sb-stat-val ${rateClass}">${pct(rate)}</span>
           </div>
           <div class="sb-stat">
-            <span class="sb-stat-label">お試し</span>
-            <span class="sb-stat-val accent-amber">${fmt(k.trial)}</span>
+            <span class="sb-stat-label">契約単価</span>
+            <span class="sb-stat-val accent-amber" style="font-size:15px">${yenCeil(k.avgUnit)}</span>
           </div>
           <div class="sb-stat">
-            <span class="sb-stat-label">契約金額</span>
-            <span class="sb-stat-val" style="font-size:15px;color:var(--green)">${yen(k.conAmt)}</span>
+            <span class="sb-stat-label">CPI</span>
+            <span class="sb-stat-val accent-green" style="font-size:15px">${yenCeil(k.cpi)}</span>
           </div>
           <div class="sb-stat">
-            <span class="sb-stat-label">未収金</span>
-            <span class="sb-stat-val" style="font-size:15px;color:${k.unpaid>0?'#fbbf24':'#34d399'}">${yen(k.unpaid)}</span>
+            <span class="sb-stat-label">アップセル率</span>
+            <span class="sb-stat-val" style="color:var(--purple)">${pct(k.upsellRate)}</span>
+          </div>
+          <div class="sb-stat">
+            <span class="sb-stat-label">アップセル単価</span>
+            <span class="sb-stat-val" style="font-size:15px;color:var(--purple)">${k.upsellCon>0?yenCeil(k.upsellAvg):'–'}</span>
           </div>
         </div>
         <span class="sb-month">${targetMonth}</span>
@@ -978,13 +982,16 @@ function calcKPI(rows) {
   const trial = visits.filter(isTrialType).length; // 契約のうちお試し系
   const ca = visits.filter(isCAOnly).length;
   const unk = visits.filter(isUnknown).length;
-  const conAmt = visits.filter(isContract).reduce((s,r)=>s+pn(r[C.契約金額]),0);
+  const conAmt = visits.filter(isContract).reduce((s,r)=>s+pn(r[C.契約金額])+pn(r[C.お試し額]),0);
   const payAmt = visits.filter(isContract).reduce((s,r)=>s+pn(r[C.入金額]),0);
   const upsellRows = visits.filter(isUpsell);
   const upsellCon = upsellRows.length;
   const upsellAmt = upsellRows.reduce((s,r)=>s+pn(r[C.契約金額])+pn(r[C.お試し額]),0);
+  const avgUnit = con>0?conAmt/con:0;
+  const cpi = n>0?conAmt/n:0;
   return { n, con, trial, ca, unk, conAmt, payAmt, unpaid:conAmt-payAmt,
     conRate:n>0?con/n:0, trialRate:n>0?trial/n:0, caRate:n>0?ca/n:0,
+    avgUnit, cpi,
     upsellCon, upsellRate:con>0?upsellCon/con:0, upsellAvg:upsellCon>0?upsellAmt/upsellCon:0 };
 }
 
