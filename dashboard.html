@@ -280,9 +280,10 @@
     <button class="snav-link" onclick="scrollTo('secUpsell')">⬆ アップセル</button>
     <button class="snav-link" onclick="scrollTo('secVisit')">🚶 来店結果</button>
     <button class="snav-link" onclick="scrollTo('secDaily')">📅 日別推移</button>
+    <button class="snav-link" onclick="scrollTo('secWeekly')">📆 週次推移</button>
     <button class="snav-link" onclick="scrollTo('secStore')">🏪 店舗・CP</button>
     <button class="snav-link" onclick="scrollTo('secStaff')">👤 担当者</button>
-    <button class="snav-link" onclick="scrollTo('secRank')">⭐ 社員評価</button>
+    <button class="snav-link" onclick="scrollTo('secStaffPerf')">👥 社員別成績</button>
     <button class="snav-link" onclick="scrollTo('secTable')">📋 サマリー表</button>
   </div>
 </nav>
@@ -463,6 +464,23 @@
     </div>
   </div>
 
+  <!-- ===== 週次推移 ===== -->
+  <div id="secWeekly">
+    <div class="section-title">週次推移（水曜始まり）</div>
+    <div class="grid-2">
+      <div class="card fw">
+        <div class="ct">週次 来店数・契約数</div>
+        <div class="cs">水曜〜火曜を1週として集計</div>
+        <div style="position:relative;height:260px;"><canvas id="cWeekly"></canvas></div>
+      </div>
+      <div class="card fw">
+        <div class="ct">週次 売上合計</div>
+        <div class="cs">週ごとの契約金額＋お試し額の合計</div>
+        <div style="position:relative;height:220px;"><canvas id="cWeeklyRev"></canvas></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 店舗 / CP ===== -->
   <div id="secStore">
     <div class="section-title">店舗 / CP 分析</div>
@@ -497,28 +515,32 @@
     </div>
   </div>
 
-  <!-- ===== 社員別評価 ===== -->
-  <div id="secRank">
-    <div class="section-title">社員別評価</div>
+  <!-- ===== 社員別パフォーマンス ===== -->
+  <div id="secStaffPerf">
+    <div class="section-title">社員別パフォーマンス</div>
     <div class="table-wrap">
       <div class="tw-head">
         <div>
-          <div class="ct" style="margin:0">社員別 評価・CAパターン一覧</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px;">ランク：A＝最高評価　B＝標準以上　C＝改善必要　D＝要フォロー</div>
+          <div class="ct" style="margin:0">社員別 成績一覧（選択月）</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px;">来店数の降順。契約単価・CPI・アップセル単価は端数切り上げ。</div>
         </div>
-        <div class="tw-count" id="staffCount">–</div>
+        <div class="tw-count" id="staffPerfCount">–</div>
       </div>
       <div class="tscroll">
         <table>
           <thead>
             <tr>
-              <th>事業</th><th>社員名</th><th>在籍</th>
-              <th>評価ランク</th><th>CAパターン</th>
-              <th style="text-align:right">4月 来店</th><th style="text-align:right">4月 契約</th><th style="text-align:right">4月 契約率</th>
-              <th style="text-align:right">5月 来店</th><th style="text-align:right">5月 契約</th><th style="text-align:right">5月 契約率</th>
+              <th>事業</th><th>担当者</th>
+              <th style="text-align:right">来店数</th>
+              <th style="text-align:right">契約数</th>
+              <th style="text-align:right">契約率</th>
+              <th style="text-align:right">契約単価</th>
+              <th style="text-align:right">CPI</th>
+              <th style="text-align:right">アップセル率</th>
+              <th style="text-align:right">アップセル単価</th>
             </tr>
           </thead>
-          <tbody id="staffBody"><tr><td colspan="11" class="empty">読み込み中…</td></tr></tbody>
+          <tbody id="staffPerfBody"><tr><td colspan="9" class="empty">読み込み中…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -755,11 +777,12 @@ function render() {
   renderResultBars(kpis);
   renderMonthlyTrend();
   renderDailyCharts();
+  renderWeeklyCharts();
   renderStore();
   renderCP();
   renderStaffChart();
   renderPay();
-  renderStaffTable();
+  renderStaffPerfTable();
   renderTable(kpis);
 }
 
@@ -871,11 +894,11 @@ function renderTodaySummary() {
         </div>
         <div class="today-kpi">
           <span class="today-kpi-label">契約単価</span>
-          <span class="today-kpi-val" style="color:var(--amber);font-size:16px">${yen(avgUnit)}</span>
+          <span class="today-kpi-val" style="color:var(--amber);font-size:16px">${yenCeil(avgUnit)}</span>
         </div>
         <div class="today-kpi">
           <span class="today-kpi-label">CPI</span>
-          <span class="today-kpi-val" style="color:var(--green);font-size:16px">${yen(cpi)}</span>
+          <span class="today-kpi-val" style="color:var(--green);font-size:16px">${yenCeil(cpi)}</span>
         </div>
       </div>
     </div>`;
@@ -1074,27 +1097,39 @@ function renderMonthlyTrend() {
 /* 日別チャート */
 function renderDailyCharts() {
   dc('daily'); dc('dailyRev');
-  const dateMap={};
-  DATA_D.forEach(r=>{
-    if(!r.date)return;
-    if(!dateMap[r.date])dateMap[r.date]={visits:0,contracts:0,revenue:0};
-    dateMap[r.date].visits+=r.visits;
-    dateMap[r.date].contracts+=r.contracts;
-    dateMap[r.date].revenue+=r.revenue;
+  const selMonth = v('fMonth'); // e.g. '5月' or ''
+  function monthMatch(date) {
+    if (!selMonth) return true;
+    const p = date.split('/');
+    return parseInt(p[1]) === parseInt(selMonth) || parseInt(p[2]) === parseInt(selMonth);
+  }
+  function buildMap(biz) {
+    const map={};
+    DATA_D.filter(r=>r._biz===biz&&r.date&&monthMatch(r.date)).forEach(r=>{
+      if(!map[r.date])map[r.date]={visits:0,contracts:0,revenue:0};
+      map[r.date].visits+=r.visits; map[r.date].contracts+=r.contracts; map[r.date].revenue+=r.revenue;
+    });
+    return map;
+  }
+  const isBoth = BIZ==='both';
+  const bizList = isBoth ? ['mcl','stl'] : [BIZ];
+  const allDates=[...new Set(bizList.flatMap(bz=>Object.keys(buildMap(bz))))].sort();
+  const labels=allDates.map(d=>{const p=d.split('/');return`${parseInt(p[1])}/${parseInt(p[2])}`});
+  const COLS={mcl:{v:'#818cf8',c:'#34d399',r:'#fbbf24'},stl:{v:'#f472b6',c:'#e879f9',r:'#fb923c'}};
+  const vDatasets=[], rDatasets=[];
+  bizList.forEach(bz=>{
+    const map=buildMap(bz); const label=bz==='mcl'?'MCL':'STL';
+    vDatasets.push({label:`${label} 来店`,data:allDates.map(d=>(map[d]||{}).visits||0),borderColor:COLS[bz].v,backgroundColor:COLS[bz].v+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
+    vDatasets.push({label:`${label} 契約`,data:allDates.map(d=>(map[d]||{}).contracts||0),borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
+    rDatasets.push({label:`${label} 売上`,data:allDates.map(d=>(map[d]||{}).revenue||0),borderColor:COLS[bz].r,backgroundColor:COLS[bz].r+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
   });
-  const dates=Object.keys(dateMap).sort();
-  const labels=dates.map(d=>{const p=d.split('/');return `${parseInt(p[1])}/${parseInt(p[2])}`});
-
-  CH.daily=new Chart(document.getElementById('cDaily'),{type:'line',data:{labels,datasets:[
-    {label:'新規来店数',data:dates.map(d=>dateMap[d].visits),borderColor:'#818cf8',backgroundColor:'rgba(129,140,248,0.08)',tension:0.3,fill:true,pointRadius:2,borderWidth:2},
-    {label:'新規契約数',data:dates.map(d=>dateMap[d].contracts),borderColor:'#34d399',backgroundColor:'rgba(52,211,153,0.08)',tension:0.3,fill:true,pointRadius:2,borderWidth:2},
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:ax()}}});
-
-  CH.dailyRev=new Chart(document.getElementById('cDailyRev'),{type:'line',data:{labels,datasets:[
-    {label:'売上合計',data:dates.map(d=>dateMap[d].revenue),borderColor:'#fbbf24',backgroundColor:'rgba(251,191,36,0.08)',tension:0.3,fill:true,pointRadius:2,borderWidth:2},
-  ]},options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`売上: ¥${ctx.raw?.toLocaleString('ja-JP')}`}}},
-    scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:{...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/10000).toFixed(0)}万`}}}}});
+  CH.daily=new Chart(document.getElementById('cDaily'),{type:'line',data:{labels,datasets:vDatasets},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:ax()}}});
+  CH.dailyRev=new Chart(document.getElementById('cDailyRev'),{type:'line',data:{labels,datasets:rDatasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ¥${ctx.raw?.toLocaleString('ja-JP')}`}}},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:{...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/10000).toFixed(0)}万`}}}}});
 }
 
 /* 店舗別 */
@@ -1145,38 +1180,83 @@ function renderPay() {
     options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{boxWidth:10,padding:10,font:{size:11}}},tooltip:TP}}});
 }
 
-/* ===== 社員別評価テーブル ===== */
-function renderStaffTable() {
-  document.getElementById('staffCount').textContent=`${DATA_S.length}名`;
-  if(!DATA_S.length){document.getElementById('staffBody').innerHTML=`<tr><td colspan="11" class="empty">データなし</td></tr>`;return;}
-
-  const month4='2026/4月', month5='2026/5月';
-  const rows=[...DATA_S].sort((a,b)=>{
-    const rankOrder={'Aランク':0,'Bランク':1,'Cランク':2,'Dランク':3};
-    return (rankOrder[a.rank]??9)-(rankOrder[b.rank]??9);
+/* ===== 週次チャート（水曜始まり） ===== */
+function renderWeeklyCharts() {
+  dc('weekly'); dc('weeklyRev');
+  function wedStart(dateStr) {
+    const [y,m,d]=dateStr.split('/').map(Number);
+    const dt=new Date(y,m-1,d);
+    const day=dt.getDay(); // 0=Sun,3=Wed
+    const diff=(day-3+7)%7;
+    dt.setDate(dt.getDate()-diff);
+    return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+  }
+  const isBoth=BIZ==='both';
+  const bizList=isBoth?['mcl','stl']:[BIZ];
+  const COLS={mcl:{v:'#818cf8',c:'#34d399',r:'#fbbf24'},stl:{v:'#f472b6',c:'#e879f9',r:'#fb923c'}};
+  const allWeeks=new Set();
+  const maps={};
+  bizList.forEach(bz=>{
+    maps[bz]={};
+    DATA.filter(r=>r._biz===bz&&isVisit(r)&&r[C.日付]).forEach(r=>{
+      const w=wedStart(r[C.日付]);
+      allWeeks.add(w);
+      if(!maps[bz][w])maps[bz][w]={n:0,con:0,amt:0,upsell:0};
+      maps[bz][w].n++;
+      if(isContract(r)){maps[bz][w].con++;maps[bz][w].amt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+      if(isUpsell(r))maps[bz][w].upsell++;
+    });
   });
+  const weeks=[...allWeeks].sort();
+  const labels=weeks.map(w=>{const p=w.split('/');return`${parseInt(p[1])}/${parseInt(p[2])}〜`});
+  const vDs=[],rDs=[];
+  bizList.forEach(bz=>{
+    const label=bz==='mcl'?'MCL':'STL';
+    vDs.push({label:`${label} 来店`,data:weeks.map(w=>(maps[bz][w]||{}).n||0),backgroundColor:COLS[bz].v+'70',borderColor:COLS[bz].v,borderWidth:1,borderRadius:4});
+    vDs.push({label:`${label} 契約`,data:weeks.map(w=>(maps[bz][w]||{}).con||0),backgroundColor:COLS[bz].c+'88',borderColor:COLS[bz].c,borderWidth:1,borderRadius:4});
+    rDs.push({label:`${label} 売上`,data:weeks.map(w=>(maps[bz][w]||{}).amt||0),backgroundColor:COLS[bz].r+'70',borderColor:COLS[bz].r,borderWidth:1,borderRadius:4});
+  });
+  CH.weekly=new Chart(document.getElementById('cWeekly'),{type:'bar',data:{labels,datasets:vDs},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:ax()}}});
+  CH.weeklyRev=new Chart(document.getElementById('cWeeklyRev'),{type:'bar',data:{labels,datasets:rDs},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ¥${ctx.raw?.toLocaleString('ja-JP')}`}}},
+      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:{...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/10000).toFixed(0)}万`}}}}});
+}
 
-  document.getElementById('staffBody').innerHTML=rows.map(d=>{
-    const bizLabel=d._biz==='mcl'
+/* ===== 社員別パフォーマンステーブル ===== */
+function renderStaffPerfTable() {
+  const map={};
+  DATA.filter(isVisit).forEach(r=>{
+    const name=r[C.担当者]||'(未設定)', biz=r._biz||'?', key=`${biz}__${name}`;
+    if(!map[key])map[key]={biz,name,n:0,con:0,conAmt:0,upsellCon:0,upsellAmt:0};
+    map[key].n++;
+    if(isContract(r)){map[key].con++;map[key].conAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+    if(isUpsell(r)){map[key].upsellCon++;map[key].upsellAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+  });
+  const rows=Object.values(map).sort((a,b)=>b.n-a.n);
+  document.getElementById('staffPerfCount').textContent=`${rows.length}名`;
+  if(!rows.length){document.getElementById('staffPerfBody').innerHTML=`<tr><td colspan="9" class="empty">データなし</td></tr>`;return;}
+  document.getElementById('staffPerfBody').innerHTML=rows.map(d=>{
+    const bizLabel=d.biz==='mcl'
       ?`<span class="chip cb">MCL</span>`
       :`<span class="chip" style="background:rgba(244,114,182,0.12);color:#f9a8d4;">STL</span>`;
-    const rankKey=d.rank.replace('ランク','');
-    const m4=d.months?.[month4]||{};
-    const m5=d.months?.[month5]||{};
-    const r4=m4.contracts!=null&&m4.visits>0?(m4.contracts/m4.visits):null;
-    const r5=m5.contracts!=null&&m5.visits>0?(m5.contracts/m5.visits):null;
+    const conRate=d.n>0?d.con/d.n:0;
+    const avgUnit=d.con>0?d.conAmt/d.con:0;
+    const cpi=d.n>0?d.conAmt/d.n:0;
+    const upsellRate=d.con>0?d.upsellCon/d.con:0;
+    const upsellAvg=d.upsellCon>0?d.upsellAmt/d.upsellCon:0;
     return `<tr>
       <td>${bizLabel}</td>
       <td class="nm">${d.name}</td>
-      <td><span class="chip ${d.status.includes('在籍')?'cg':'cd'}">${d.status||'–'}</span></td>
-      <td><span class="rank rank-${rankKey||'?'}">${d.rank||'–'}</span></td>
-      <td><span class="pattern">${d.pattern||'–'}</span></td>
-      <td class="nr">${m4.visits!=null?fmt(m4.visits):'–'}</td>
-      <td class="nr">${m4.contracts!=null?fmt(m4.contracts):'–'}</td>
-      <td class="nr">${m4.rate!=null?m4.rate:r4!=null?pct(r4):'–'}</td>
-      <td class="nr">${m5.visits!=null?fmt(m5.visits):'–'}</td>
-      <td class="nr">${m5.contracts!=null?fmt(m5.contracts):'–'}</td>
-      <td class="nr">${m5.rate!=null?m5.rate:r5!=null?pct(r5):'–'}</td>
+      <td class="nr">${fmt(d.n)}</td>
+      <td class="nr">${fmt(d.con)}</td>
+      <td class="nr">${chip(conRate)}</td>
+      <td class="nr">${yenCeil(avgUnit)}</td>
+      <td class="nr">${yenCeil(cpi)}</td>
+      <td class="nr">${d.con>0?pct(upsellRate):'–'}</td>
+      <td class="nr">${d.upsellCon>0?yenCeil(upsellAvg):'–'}</td>
     </tr>`;
   }).join('');
 }
@@ -1226,6 +1306,7 @@ function pn(s) { if(!s)return 0; const n=parseInt(String(s).replace(/[^\d\-]/g,'
 function v(id){return document.getElementById(id).value;}
 function fmt(n){return(n||0).toLocaleString('ja-JP');}
 function yen(n){return'¥'+(n||0).toLocaleString('ja-JP');}
+function yenCeil(n){return'¥'+Math.ceil(n||0).toLocaleString('ja-JP');}
 function pct(n){return((n||0)*100).toFixed(1)+'%';}
 function uniq(a){return[...new Set(a)];}
 function setBiz(biz){BIZ=biz;document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.biz===biz));render();}
