@@ -446,7 +446,11 @@
 
   <!-- ===== 本日のサマリー ===== -->
   <div id="secToday">
-    <div class="section-title">本日のサマリー</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;margin-top:8px;">
+      <span style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.12em;white-space:nowrap;">本日のサマリー</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <input type="date" id="todayDate" class="fsel" style="min-width:0;width:150px;padding:5px 10px;" onchange="renderTodaySummary()">
+    </div>
     <div class="today-banner" id="todayBanner">
       <div class="loading" style="height:70px;"><div class="spin"></div></div>
     </div>
@@ -708,6 +712,13 @@ function fetchStaffSheet(s) {
 
 /* ===== INIT ===== */
 async function init() {
+  // 本日日付をデフォルトにセット（未設定時のみ）
+  const todayInp = document.getElementById('todayDate');
+  if (todayInp && !todayInp.value) {
+    const now = new Date();
+    todayInp.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
+
   document.getElementById('dataStatus').innerHTML = '';
   document.getElementById('summaryBanner').innerHTML = `<div class="loading" style="height:120px;"><div class="spin"></div></div>`;
 
@@ -782,10 +793,18 @@ function render() {
 
 /* ===== 本日のサマリー ===== */
 function renderTodaySummary() {
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
-  const mm = String(now.getMonth()+1);
-  const dd = String(now.getDate());
+  const inp = document.getElementById('todayDate');
+  const sel = inp?.value; // YYYY-MM-DD
+  let todayStr, mm, dd;
+  if (sel) {
+    const [y, m, d] = sel.split('-');
+    todayStr = `${y}/${m}/${d}`;
+    mm = String(parseInt(m)); dd = String(parseInt(d));
+  } else {
+    const now = new Date();
+    todayStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+    mm = String(now.getMonth()+1); dd = String(now.getDate());
+  }
 
   function matchToday(val) {
     const s = String(val||'').trim();
