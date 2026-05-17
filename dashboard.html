@@ -291,6 +291,13 @@
     .sum2-up-label { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:0.07em; font-weight:600; }
     .sum2-up-val { font-size:18px; font-weight:800; color:var(--purple); }
     @media (max-width:960px) { .sum2-grid { grid-template-columns:1fr; } .sum2-kpis { grid-template-columns:repeat(2,1fr); } }
+
+    /* ===== SORTABLE HEADERS ===== */
+    th.sortable { cursor:pointer; user-select:none; transition:background 0.12s,color 0.12s; }
+    th.sortable:hover { background:var(--bg1); color:var(--text0); }
+    th.sort-active { color:var(--mcl) !important; background:var(--mcl-light) !important; }
+    .sort-ind { font-size:9px; opacity:0.5; margin-left:2px; }
+    th.sort-active .sort-ind { opacity:1; }
   </style>
 </head>
 <body>
@@ -528,10 +535,13 @@
           <table>
             <thead><tr>
               <th>担当者</th>
-              <th style="text-align:right">来店</th><th style="text-align:right">契約</th>
-              <th style="text-align:right">契約率</th><th style="text-align:right">契約単価</th>
-              <th style="text-align:right">CPI</th><th style="text-align:right">US率</th>
-              <th style="text-align:right">US単価</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('n')">来店<span class="sort-ind">▼</span></th>
+              <th style="text-align:right">契約</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('conRate')">契約率<span class="sort-ind">▼</span></th>
+              <th style="text-align:right">契約単価</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('cpi')">CPI<span class="sort-ind">▼</span></th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('upsellRate')">US率<span class="sort-ind">▼</span></th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('upsellAvg')">US単価<span class="sort-ind">▼</span></th>
             </tr></thead>
             <tbody id="staffPerfMCLBody"><tr><td colspan="8" class="empty">読み込み中…</td></tr></tbody>
           </table>
@@ -549,10 +559,13 @@
           <table>
             <thead><tr>
               <th>担当者</th>
-              <th style="text-align:right">来店</th><th style="text-align:right">契約</th>
-              <th style="text-align:right">契約率</th><th style="text-align:right">契約単価</th>
-              <th style="text-align:right">CPI</th><th style="text-align:right">US率</th>
-              <th style="text-align:right">US単価</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('n')">来店<span class="sort-ind">▼</span></th>
+              <th style="text-align:right">契約</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('conRate')">契約率<span class="sort-ind">▼</span></th>
+              <th style="text-align:right">契約単価</th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('cpi')">CPI<span class="sort-ind">▼</span></th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('upsellRate')">US率<span class="sort-ind">▼</span></th>
+              <th class="sortable" style="text-align:right" onclick="setStaffSort('upsellAvg')">US単価<span class="sort-ind">▼</span></th>
             </tr></thead>
             <tbody id="staffPerfSTLBody"><tr><td colspan="8" class="empty">読み込み中…</td></tr></tbody>
           </table>
@@ -594,6 +607,7 @@ const C = {
 let RAW=[], RAW_D=[], RAW_S=[];
 let DATA=[], DATA_D=[], DATA_S=[];
 let BIZ='both';
+let STAFF_SORT='n';
 const CH={};
 
 /* ===== URL ===== */
@@ -1203,6 +1217,11 @@ function renderWeeklyCharts() {
       scales:{x:xAx, y:pctAxis}}});
 }
 
+function setStaffSort(key) {
+  STAFF_SORT = key;
+  renderStaffPerfTable();
+}
+
 /* ===== 社員別パフォーマンス（MCL/STL 2列） ===== */
 function renderStaffPerfTable() {
   const map = {};
@@ -1213,7 +1232,23 @@ function renderStaffPerfTable() {
     if (isContract(r)) { map[key].con++; map[key].conAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
     if (isUpsell(r))   { map[key].upsellCon++; map[key].upsellAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
   });
-  const allRows = Object.values(map).sort((a,b) => b.n - a.n);
+
+  function sortVal(d) {
+    switch(STAFF_SORT) {
+      case 'conRate':    return d.n>0 ? d.con/d.n : 0;
+      case 'cpi':        return d.n>0 ? d.conAmt/d.n : 0;
+      case 'upsellRate': return d.con>0 ? d.upsellCon/d.con : 0;
+      case 'upsellAvg':  return d.upsellCon>0 ? d.upsellAmt/d.upsellCon : 0;
+      default:           return d.n;
+    }
+  }
+  const allRows = Object.values(map).sort((a,b) => sortVal(b) - sortVal(a));
+
+  // ヘッダーのアクティブ表示更新
+  document.querySelectorAll('#secStaffPerf th.sortable').forEach(th => {
+    const key = th.getAttribute('onclick').match(/'(\w+)'/)?.[1];
+    th.classList.toggle('sort-active', key === STAFF_SORT);
+  });
 
   function buildRows(rows) {
     if (!rows.length) return `<tr><td colspan="8" class="empty">データなし</td></tr>`;
