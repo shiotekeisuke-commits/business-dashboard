@@ -841,8 +841,6 @@ function renderTodaySummary() {
     }
 
     const k = calcKPI(rows);
-    const avgUnit = k.con > 0 ? k.conAmt / k.con : 0;
-    const cpi = k.n > 0 ? k.conAmt / k.n : 0;
 
     return `<div class="today-card ${cls}">
       <span class="sb-biz ${isMCL?'mcl':'stl'}" style="flex-shrink:0">${bizLabel}</span>
@@ -856,16 +854,24 @@ function renderTodaySummary() {
           <span class="today-kpi-val big" style="color:var(--green)">${fmt(k.con)}</span>
         </div>
         <div class="today-kpi">
-          <span class="today-kpi-label">アップセル数</span>
-          <span class="today-kpi-val big" style="color:var(--purple)">${fmt(k.upsellCon)}</span>
+          <span class="today-kpi-label">契約率</span>
+          <span class="today-kpi-val" style="color:var(--green);font-size:17px">${pct(k.conRate)}</span>
         </div>
         <div class="today-kpi">
           <span class="today-kpi-label">契約単価</span>
-          <span class="today-kpi-val" style="color:var(--amber);font-size:16px">${yenCeil(avgUnit)}</span>
+          <span class="today-kpi-val" style="color:var(--amber);font-size:16px">${yenCeil(k.avgUnit)}</span>
         </div>
         <div class="today-kpi">
           <span class="today-kpi-label">CPI</span>
-          <span class="today-kpi-val" style="color:var(--green);font-size:16px">${yenCeil(cpi)}</span>
+          <span class="today-kpi-val" style="color:var(--green);font-size:16px">${yenCeil(k.cpi)}</span>
+        </div>
+        <div class="today-kpi">
+          <span class="today-kpi-label">US率</span>
+          <span class="today-kpi-val" style="color:var(--purple);font-size:17px">${k.con>0?pct(k.upsellRate):'–'}</span>
+        </div>
+        <div class="today-kpi">
+          <span class="today-kpi-label">US単価</span>
+          <span class="today-kpi-val" style="color:var(--purple);font-size:16px">${k.upsellCon>0?yenCeil(k.upsellAvg):'–'}</span>
         </div>
       </div>
     </div>`;
