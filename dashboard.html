@@ -320,10 +320,8 @@
     <div class="snav-sep"></div>
     <button class="snav-link" onclick="scrollTo('secDaily')">📅 日別推移</button>
     <button class="snav-link" onclick="scrollTo('secWeekly')">📆 週次推移</button>
-    <button class="snav-link" onclick="scrollTo('secStore')">🏪 店舗・CP</button>
-    <button class="snav-link" onclick="scrollTo('secStaff')">👤 担当者</button>
+    <button class="snav-link" onclick="scrollTo('secCP')">🎯 CP分析</button>
     <button class="snav-link" onclick="scrollTo('secStaffPerf')">👥 社員別成績</button>
-    <button class="snav-link" onclick="scrollTo('secTable')">📋 サマリー表</button>
   </div>
 </nav>
 
@@ -465,17 +463,22 @@
 
   <!-- ===== 日別推移 ===== -->
   <div id="secDaily">
-    <div class="section-title">日別推移</div>
+    <div class="section-title">日別推移（選択月）</div>
     <div class="grid-2">
       <div class="card fw">
-        <div class="ct">日別 新規来店数・契約数</div>
-        <div class="cs">日ごとの来店・契約の推移（日別シートより）</div>
-        <div style="position:relative;height:260px;"><canvas id="cDaily"></canvas></div>
+        <div class="ct">日別 新規来店数</div>
+        <div class="cs">MCL / STL それぞれの来店数推移</div>
+        <div style="position:relative;height:220px;"><canvas id="cDailyVisit"></canvas></div>
       </div>
       <div class="card fw">
-        <div class="ct">日別 売上合計</div>
-        <div class="cs">日ごとの売上推移（日別シートより）</div>
-        <div style="position:relative;height:220px;"><canvas id="cDailyRev"></canvas></div>
+        <div class="ct">日別 契約率 &amp; アップセル率</div>
+        <div class="cs">実線=契約率　破線=アップセル率</div>
+        <div style="position:relative;height:220px;"><canvas id="cDailyRates"></canvas></div>
+      </div>
+      <div class="card fw">
+        <div class="ct">日別 CPI &amp; アップセル単価</div>
+        <div class="cs">実線=CPI（来店数あたり契約額）　破線=アップセル単価</div>
+        <div style="position:relative;height:220px;"><canvas id="cDailyYen"></canvas></div>
       </div>
     </div>
   </div>
@@ -497,87 +500,63 @@
     </div>
   </div>
 
-  <!-- ===== 店舗 / CP ===== -->
-  <div id="secStore">
-    <div class="section-title">店舗 / CP 分析</div>
+  <!-- ===== CP分析 ===== -->
+  <div id="secCP">
+    <div class="section-title">CP 分析</div>
     <div class="grid-2">
-      <div class="card">
-        <div class="ct">店舗別成績</div>
-        <div class="cs">来店数・契約数（店舗ごと）</div>
-        <div style="position:relative;height:260px;"><canvas id="cStore"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="ct">CP別 来店・契約数（上位12件）</div>
+      <div class="card fw">
+        <div class="ct">CP別 来店・契約数（上位15件）</div>
         <div class="cs">キャンペーン別の集客・成約成果</div>
-        <div style="position:relative;height:260px;"><canvas id="cCP"></canvas></div>
+        <div style="position:relative;height:340px;"><canvas id="cCP"></canvas></div>
       </div>
-    </div>
-  </div>
-
-  <!-- ===== 担当者 ===== -->
-  <div id="secStaff">
-    <div class="section-title">担当者別</div>
-    <div class="card">
-      <div class="ct">担当者別成績</div>
-      <div class="cs">担当者ごとの来店数・契約数</div>
-      <div style="position:relative;height:240px;"><canvas id="cStaffChart"></canvas></div>
     </div>
   </div>
 
   <!-- ===== 社員別パフォーマンス ===== -->
   <div id="secStaffPerf">
     <div class="section-title">社員別パフォーマンス</div>
-    <div class="table-wrap">
-      <div class="tw-head">
-        <div>
-          <div class="ct" style="margin:0">社員別 成績一覧（選択月）</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px;">来店数の降順。契約単価・CPI・アップセル単価は端数切り上げ。</div>
+    <div class="grid-2" style="align-items:start;">
+      <div class="table-wrap">
+        <div class="tw-head">
+          <div>
+            <div class="ct" style="margin:0;color:var(--mcl);">♂ MCL 担当者別</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">来店数の降順。単価は端数切り上げ。</div>
+          </div>
+          <div class="tw-count" id="staffPerfMCLCount">–</div>
         </div>
-        <div class="tw-count" id="staffPerfCount">–</div>
-      </div>
-      <div class="tscroll">
-        <table>
-          <thead>
-            <tr>
-              <th>事業</th><th>担当者</th>
-              <th style="text-align:right">来店数</th>
-              <th style="text-align:right">契約数</th>
-              <th style="text-align:right">契約率</th>
-              <th style="text-align:right">契約単価</th>
-              <th style="text-align:right">CPI</th>
-              <th style="text-align:right">アップセル率</th>
-              <th style="text-align:right">アップセル単価</th>
-            </tr>
-          </thead>
-          <tbody id="staffPerfBody"><tr><td colspan="9" class="empty">読み込み中…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== 店舗別サマリーテーブル ===== -->
-  <div id="secTable">
-    <div class="section-title">サマリーテーブル</div>
-    <div class="table-wrap">
-      <div class="tw-head">
-        <div>
-          <div class="ct" style="margin:0">店舗別サマリー</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px;">契約率の色：<span class="chip cg" style="font-size:10px;">70%以上</span> <span class="chip cb" style="font-size:10px;">40%以上</span> <span class="chip cy" style="font-size:10px;">20%以上</span> <span class="chip cr" style="font-size:10px;">20%未満</span></div>
+        <div class="tscroll">
+          <table>
+            <thead><tr>
+              <th>担当者</th>
+              <th style="text-align:right">来店</th><th style="text-align:right">契約</th>
+              <th style="text-align:right">契約率</th><th style="text-align:right">契約単価</th>
+              <th style="text-align:right">CPI</th><th style="text-align:right">US率</th>
+              <th style="text-align:right">US単価</th>
+            </tr></thead>
+            <tbody id="staffPerfMCLBody"><tr><td colspan="8" class="empty">読み込み中…</td></tr></tbody>
+          </table>
         </div>
-        <div class="tw-count" id="tblCount">–</div>
       </div>
-      <div class="tscroll">
-        <table>
-          <thead>
-            <tr>
-              <th>事業</th><th>店舗名</th>
-              <th style="text-align:right">来店数</th><th style="text-align:right">契約</th><th style="text-align:right">契約率</th>
-              <th style="text-align:right">うちお試し</th><th style="text-align:right">CAのみ</th><th style="text-align:right">未記入</th>
-              <th style="text-align:right">契約金額合計</th><th style="text-align:right">入金額合計</th><th style="text-align:right">未収金</th>
-            </tr>
-          </thead>
-          <tbody id="tBody"><tr><td colspan="11" class="empty">読み込み中…</td></tr></tbody>
-        </table>
+      <div class="table-wrap">
+        <div class="tw-head">
+          <div>
+            <div class="ct" style="margin:0;color:var(--stl);">♀ STL 担当者別</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">来店数の降順。単価は端数切り上げ。</div>
+          </div>
+          <div class="tw-count" id="staffPerfSTLCount">–</div>
+        </div>
+        <div class="tscroll">
+          <table>
+            <thead><tr>
+              <th>担当者</th>
+              <th style="text-align:right">来店</th><th style="text-align:right">契約</th>
+              <th style="text-align:right">契約率</th><th style="text-align:right">契約単価</th>
+              <th style="text-align:right">CPI</th><th style="text-align:right">US率</th>
+              <th style="text-align:right">US単価</th>
+            </tr></thead>
+            <tbody id="staffPerfSTLBody"><tr><td colspan="8" class="empty">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -782,11 +761,8 @@ function render() {
   renderSummary();
   renderDailyCharts();
   renderWeeklyCharts();
-  renderStore();
   renderCP();
-  renderStaffChart();
   renderStaffPerfTable();
-  renderTable(calcKPI(DATA));
 }
 
 
@@ -1038,54 +1014,91 @@ function ax(ex={}) { return {ticks:{color:'#94a3b8',...(ex.ticks||{})},grid:{col
 const TP={backgroundColor:'#1e293b',titleColor:'#f1f5f9',bodyColor:'#94a3b8',borderColor:'rgba(15,23,42,0.15)',borderWidth:1,padding:12};
 function dc(key){if(CH[key]){CH[key].destroy();delete CH[key];}}
 
-/* 日別チャート */
+/* 日付正規化: YYYY/MM/DD に統一 */
+function parseDate(val) {
+  const s = String(val||'').trim();
+  const m1 = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m1) return `${m1[1]}/${m1[2].padStart(2,'0')}/${m1[3].padStart(2,'0')}`;
+  const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m2) return `${m2[3]}/${m2[1].padStart(2,'0')}/${m2[2].padStart(2,'0')}`;
+  return null;
+}
+
+/* 日別チャート（visit sheetから計算、5指標） */
 function renderDailyCharts() {
-  dc('daily'); dc('dailyRev');
-  const selMonth = v('fMonth'); // e.g. '5月' or ''
-  function monthMatch(date) {
-    if (!selMonth) return true;
-    const p = date.split('/');
-    return parseInt(p[1]) === parseInt(selMonth) || parseInt(p[2]) === parseInt(selMonth);
-  }
-  function buildMap(biz) {
-    const map={};
-    DATA_D.filter(r=>r._biz===biz&&r.date&&monthMatch(r.date)).forEach(r=>{
-      if(!map[r.date])map[r.date]={visits:0,contracts:0,revenue:0};
-      map[r.date].visits+=r.visits; map[r.date].contracts+=r.contracts; map[r.date].revenue+=r.revenue;
+  dc('dailyVisit'); dc('dailyRates'); dc('dailyYen');
+  const selMonth = v('fMonth');
+  const bizList = BIZ==='both' ? ['mcl','stl'] : [BIZ];
+  const COLS = {
+    mcl: { v:'#1d4ed8', c:'#059669', u:'#d97706', ua:'#7c3aed' },
+    stl: { v:'#be185d', c:'#9333ea', u:'#ea580c', ua:'#6d28d9' },
+  };
+
+  function buildDayMap(biz) {
+    const map = {};
+    RAW.filter(r => {
+      if (r._biz !== biz) return false;
+      if (selMonth && r._month !== selMonth) return false;
+      return isVisit(r);
+    }).forEach(r => {
+      const date = parseDate(r[C.日付]);
+      if (!date) return;
+      if (!map[date]) map[date] = {n:0,con:0,conAmt:0,upsell:0,upsellAmt:0};
+      map[date].n++;
+      if (isContract(r)) { map[date].con++; map[date].conAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
+      if (isUpsell(r))   { map[date].upsell++; map[date].upsellAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
     });
     return map;
   }
-  const isBoth = BIZ==='both';
-  const bizList = isBoth ? ['mcl','stl'] : [BIZ];
-  const allDates=[...new Set(bizList.flatMap(bz=>Object.keys(buildMap(bz))))].sort();
-  const labels=allDates.map(d=>{const p=d.split('/');return`${parseInt(p[1])}/${parseInt(p[2])}`});
-  const COLS={mcl:{v:'#1d4ed8',c:'#059669',r:'#d97706'},stl:{v:'#be185d',c:'#9333ea',r:'#ea580c'}};
-  const vDatasets=[], rDatasets=[];
-  bizList.forEach(bz=>{
-    const map=buildMap(bz); const label=bz==='mcl'?'MCL':'STL';
-    vDatasets.push({label:`${label} 来店`,data:allDates.map(d=>(map[d]||{}).visits||0),borderColor:COLS[bz].v,backgroundColor:COLS[bz].v+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
-    vDatasets.push({label:`${label} 契約`,data:allDates.map(d=>(map[d]||{}).contracts||0),borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
-    rDatasets.push({label:`${label} 売上`,data:allDates.map(d=>(map[d]||{}).revenue||0),borderColor:COLS[bz].r,backgroundColor:COLS[bz].r+'18',tension:0.3,fill:true,pointRadius:2,borderWidth:2});
-  });
-  CH.daily=new Chart(document.getElementById('cDaily'),{type:'line',data:{labels,datasets:vDatasets},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:ax()}}});
-  CH.dailyRev=new Chart(document.getElementById('cDailyRev'),{type:'line',data:{labels,datasets:rDatasets},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ¥${ctx.raw?.toLocaleString('ja-JP')}`}}},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}},y:{...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/10000).toFixed(0)}万`}}}}});
-}
 
-/* 店舗別 */
-function renderStore() {
-  dc('store');
-  const map={};
-  DATA.filter(isVisit).forEach(r=>{const s=r[C.店舗]||'(不明)';if(!map[s])map[s]={n:0,con:0};map[s].n++;if(isContract(r))map[s].con++;});
-  const labs=Object.keys(map).sort((a,b)=>map[b].n-map[a].n);
-  CH.store=new Chart(document.getElementById('cStore'),{type:'bar',data:{labels:labs,datasets:[
-    {label:'来店数',data:labs.map(l=>map[l].n),backgroundColor:'rgba(29,78,216,0.18)',borderColor:'#1d4ed8',borderWidth:1.5,borderRadius:6},
-    {label:'契約数',data:labs.map(l=>map[l].con),backgroundColor:'rgba(5,150,105,0.55)',borderColor:'#059669',borderWidth:1.5,borderRadius:6},
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},scales:{x:ax(),y:ax()}}});
+  const maps = {};
+  bizList.forEach(bz => maps[bz] = buildDayMap(bz));
+  const allDates = [...new Set(bizList.flatMap(bz => Object.keys(maps[bz])))].sort();
+  const labels = allDates.map(d => { const p=d.split('/'); return `${parseInt(p[1])}/${parseInt(p[2])}`; });
+  const xAx = {...ax(), ticks:{color:'#3d4870',maxRotation:45,font:{size:10}}};
+
+  // Chart 1: 来店数（棒）
+  const visitDs = bizList.map(bz => ({
+    label:`${bz.toUpperCase()} 来店数`,
+    data: allDates.map(d => (maps[bz][d]||{}).n||0),
+    backgroundColor: COLS[bz].v+'55', borderColor: COLS[bz].v, borderWidth:1.5, borderRadius:4,
+  }));
+  CH.dailyVisit = new Chart(document.getElementById('cDailyVisit'), { type:'bar',
+    data:{labels,datasets:visitDs},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},
+      scales:{x:xAx,y:ax()}} });
+
+  // Chart 2: 契約率・アップセル率（折れ線 %）
+  const rateDs = [];
+  bizList.forEach(bz => {
+    const L = bz.toUpperCase();
+    rateDs.push({label:`${L} 契約率`, data:allDates.map(d=>{const e=maps[bz][d]||{};return e.n>0?+(e.con/e.n*100).toFixed(1):null;}),
+      borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'18',tension:0.3,fill:false,pointRadius:2,borderWidth:2,spanGaps:true});
+    rateDs.push({label:`${L} US率`, data:allDates.map(d=>{const e=maps[bz][d]||{};return e.con>0?+(e.upsell/e.con*100).toFixed(1):null;}),
+      borderColor:COLS[bz].u,backgroundColor:'transparent',tension:0.3,fill:false,pointRadius:2,borderWidth:2,borderDash:[5,4],spanGaps:true});
+  });
+  const pctAx = {...ax(),min:0,ticks:{...ax().ticks,callback:v=>`${v}%`}};
+  CH.dailyRates = new Chart(document.getElementById('cDailyRates'), { type:'line',
+    data:{labels,datasets:rateDs},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ${(ctx.raw||0).toFixed(1)}%`}}},
+      scales:{x:xAx,y:pctAx}} });
+
+  // Chart 3: CPI・アップセル単価（折れ線 ¥）
+  const yenDs = [];
+  bizList.forEach(bz => {
+    const L = bz.toUpperCase();
+    yenDs.push({label:`${L} CPI`, data:allDates.map(d=>{const e=maps[bz][d]||{};return e.n>0?Math.ceil(e.conAmt/e.n):null;}),
+      borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'18',tension:0.3,fill:false,pointRadius:2,borderWidth:2,spanGaps:true});
+    yenDs.push({label:`${L} US単価`, data:allDates.map(d=>{const e=maps[bz][d]||{};return e.upsell>0?Math.ceil(e.upsellAmt/e.upsell):null;}),
+      borderColor:COLS[bz].ua,backgroundColor:'transparent',tension:0.3,fill:false,pointRadius:2,borderWidth:2,borderDash:[5,4],spanGaps:true});
+  });
+  const yenAx = {...ax(),ticks:{...ax().ticks,callback:v=>`¥${(v/1000).toFixed(0)}k`}};
+  CH.dailyYen = new Chart(document.getElementById('cDailyYen'), { type:'line',
+    data:{labels,datasets:yenDs},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,callbacks:{label:ctx=>`${ctx.dataset.label}: ¥${(ctx.raw||0).toLocaleString('ja-JP')}`}}},
+      scales:{x:xAx,y:yenAx}} });
 }
 
 /* CP別 */
@@ -1115,121 +1128,120 @@ function renderCP() {
     scales:{x:ax(),y:{...ax(),ticks:{color:'#475569',font:{size:10}}}}}});
 }
 
-/* 担当者別 */
-function renderStaffChart() {
-  dc('staffChart');
-  const map={};
-  DATA.filter(isVisit).forEach(r=>{const s=r[C.担当者]||'(未設定)';if(!map[s])map[s]={n:0,con:0};map[s].n++;if(isContract(r))map[s].con++;});
-  const labs=Object.keys(map).sort((a,b)=>map[b].n-map[a].n);
-  CH.staffChart=new Chart(document.getElementById('cStaffChart'),{type:'bar',data:{labels:labs,datasets:[
-    {label:'来店',data:labs.map(l=>map[l].n),backgroundColor:'rgba(29,78,216,0.18)',borderColor:'#1d4ed8',borderWidth:1,borderRadius:5},
-    {label:'契約',data:labs.map(l=>map[l].con),backgroundColor:'rgba(5,150,105,0.55)',borderColor:'#059669',borderWidth:1,borderRadius:5},
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:TP},scales:{x:ax(),y:ax()}}});
-}
-
-/* ===== 週次チャート（水曜始まり） ===== */
+/* ===== 週次チャート（水曜始まり・月境界対応） ===== */
 function renderWeeklyCharts() {
   dc('weekly'); dc('weeklyRev');
-  function wedStart(dateStr) {
-    const [y,m,d]=dateStr.split('/').map(Number);
-    const dt=new Date(y,m-1,d);
-    const day=dt.getDay(); // 0=Sun,3=Wed
-    const diff=(day-3+7)%7;
-    dt.setDate(dt.getDate()-diff);
-    return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+
+  // 月をまたがない週グループ: 月初〜最初の水曜前日がW1、以降は水〜火
+  function getWeekGroup(dateStr) {
+    if (!dateStr) return null;
+    const [y, m, d] = dateStr.split('/').map(Number);
+    if (!y || !m || !d) return null;
+    const lastDay = new Date(y, m, 0).getDate();
+    const firstDow = new Date(y, m-1, 1).getDay(); // 0=Sun,3=Wed
+    const daysToFirstWed = (3 - firstDow + 7) % 7;
+    const firstWed = 1 + daysToFirstWed; // 月の最初の水曜（1始まり）
+    let weekStart, weekEnd, weekNum;
+    if (daysToFirstWed > 0 && d < firstWed) {
+      // 月初〜最初の水曜前日 = W1
+      weekStart = 1; weekEnd = firstWed - 1; weekNum = 1;
+    } else {
+      const base = daysToFirstWed === 0 ? 1 : firstWed;
+      const idx = Math.floor((d - base) / 7);
+      weekStart = base + idx * 7;
+      weekEnd = Math.min(weekStart + 6, lastDay);
+      weekNum = (daysToFirstWed > 0 ? 2 : 1) + idx;
+    }
+    const key = `${y}/${String(m).padStart(2,'0')}/${String(weekStart).padStart(2,'0')}`;
+    const label = `${m}/${weekStart}-${weekEnd}(W${weekNum})`;
+    return { key, label };
   }
-  const isBoth=BIZ==='both';
-  const bizList=isBoth?['mcl','stl']:[BIZ];
-  const COLS={mcl:{v:'#1d4ed8',c:'#059669',r:'#d97706'},stl:{v:'#be185d',c:'#9333ea',r:'#ea580c'}};
-  const allWeeks=new Set();
-  const maps={};
-  bizList.forEach(bz=>{
-    maps[bz]={};
-    DATA.filter(r=>r._biz===bz&&isVisit(r)&&r[C.日付]).forEach(r=>{
-      const w=wedStart(r[C.日付]);
-      allWeeks.add(w);
-      if(!maps[bz][w])maps[bz][w]={n:0,con:0,amt:0,upsell:0};
-      maps[bz][w].n++;
-      if(isContract(r)){maps[bz][w].con++;maps[bz][w].amt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
-      if(isUpsell(r))maps[bz][w].upsell++;
+
+  const bizList = BIZ==='both' ? ['mcl','stl'] : [BIZ];
+  const COLS = { mcl:{c:'#059669',r:'#d97706'}, stl:{c:'#9333ea',r:'#ea580c'} };
+  const weekMaps = {}, weekLabels = {};
+
+  bizList.forEach(bz => {
+    weekMaps[bz] = {};
+    DATA.filter(r => r._biz===bz && isVisit(r) && r[C.日付]).forEach(r => {
+      const date = parseDate(r[C.日付]);
+      if (!date) return;
+      const grp = getWeekGroup(date);
+      if (!grp) return;
+      if (!weekMaps[bz][grp.key]) weekMaps[bz][grp.key] = {n:0, con:0, upsell:0};
+      weekMaps[bz][grp.key].n++;
+      if (isContract(r)) weekMaps[bz][grp.key].con++;
+      if (isUpsell(r))   weekMaps[bz][grp.key].upsell++;
+      weekLabels[grp.key] = grp.label;
     });
   });
-  const weeks=[...allWeeks].sort();
-  const labels=weeks.map(w=>{const p=w.split('/');return`${parseInt(p[1])}/${parseInt(p[2])}〜`});
+
+  const weeks = [...new Set(Object.keys(weekLabels))].sort();
+  const labels = weeks.map(w => weekLabels[w]);
   const pctOpts = {callbacks:{label:ctx=>`${ctx.dataset.label}: ${(ctx.raw||0).toFixed(1)}%`}};
-  const pctAxis = {...ax(),min:0,ticks:{...ax().ticks,callback:v=>`${v}%`}};
-  const conRateDs=[],upsellRateDs=[];
-  bizList.forEach(bz=>{
-    const label=bz==='mcl'?'MCL':'STL';
-    conRateDs.push({label:`${label} 契約率`,data:weeks.map(w=>{const d=maps[bz][w]||{};return d.n>0?+(d.con/d.n*100).toFixed(1):null;}),
-      borderColor:COLS[bz].c,backgroundColor:COLS[bz].c+'20',tension:0.3,fill:true,pointRadius:3,borderWidth:2,spanGaps:true});
-    upsellRateDs.push({label:`${label} アップセル率`,data:weeks.map(w=>{const d=maps[bz][w]||{};return d.con>0?+(d.upsell/d.con*100).toFixed(1):null;}),
-      borderColor:COLS[bz].r,backgroundColor:COLS[bz].r+'20',tension:0.3,fill:true,pointRadius:3,borderWidth:2,spanGaps:true});
+  const pctAxis = {...ax(), min:0, ticks:{...ax().ticks, callback:v=>`${v}%`}};
+  const conRateDs = [], upsellRateDs = [];
+
+  bizList.forEach(bz => {
+    const L = bz==='mcl' ? 'MCL' : 'STL';
+    conRateDs.push({label:`${L} 契約率`,
+      data:weeks.map(w=>{const d=weekMaps[bz][w]||{};return d.n>0?+(d.con/d.n*100).toFixed(1):null;}),
+      borderColor:COLS[bz].c, backgroundColor:COLS[bz].c+'22', tension:0.3, fill:true, pointRadius:3, borderWidth:2, spanGaps:true});
+    upsellRateDs.push({label:`${L} アップセル率`,
+      data:weeks.map(w=>{const d=weekMaps[bz][w]||{};return d.con>0?+(d.upsell/d.con*100).toFixed(1):null;}),
+      borderColor:COLS[bz].r, backgroundColor:COLS[bz].r+'22', tension:0.3, fill:true, pointRadius:3, borderWidth:2, spanGaps:true});
   });
-  CH.weekly=new Chart(document.getElementById('cWeekly'),{type:'line',data:{labels,datasets:conRateDs},
+
+  const xAx = {...ax(), ticks:{color:'#3d4870', font:{size:10}}};
+  CH.weekly = new Chart(document.getElementById('cWeekly'), {type:'line',
+    data:{labels,datasets:conRateDs},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,...pctOpts}},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:pctAxis}}});
-  CH.weeklyRev=new Chart(document.getElementById('cWeeklyRev'),{type:'line',data:{labels,datasets:upsellRateDs},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,...pctOpts}},
-      scales:{x:{...ax(),ticks:{color:'#3d4870',font:{size:10}}},y:pctAxis}}});
+      scales:{x:xAx, y:pctAxis}}});
+  CH.weeklyRev = new Chart(document.getElementById('cWeeklyRev'), {type:'line',
+    data:{labels,datasets:upsellRateDs},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:10,padding:12}},tooltip:{...TP,...pctOpts}},
+      scales:{x:xAx, y:pctAxis}}});
 }
 
-/* ===== 社員別パフォーマンステーブル ===== */
+/* ===== 社員別パフォーマンス（MCL/STL 2列） ===== */
 function renderStaffPerfTable() {
-  const map={};
-  DATA.filter(isVisit).forEach(r=>{
-    const name=r[C.担当者]||'(未設定)', biz=r._biz||'?', key=`${biz}__${name}`;
-    if(!map[key])map[key]={biz,name,n:0,con:0,conAmt:0,upsellCon:0,upsellAmt:0};
+  const map = {};
+  DATA.filter(isVisit).forEach(r => {
+    const name = r[C.担当者]||'(未設定)', biz = r._biz||'?', key = `${biz}__${name}`;
+    if (!map[key]) map[key] = {biz, name, n:0, con:0, conAmt:0, upsellCon:0, upsellAmt:0};
     map[key].n++;
-    if(isContract(r)){map[key].con++;map[key].conAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
-    if(isUpsell(r)){map[key].upsellCon++;map[key].upsellAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+    if (isContract(r)) { map[key].con++; map[key].conAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
+    if (isUpsell(r))   { map[key].upsellCon++; map[key].upsellAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
   });
-  const rows=Object.values(map).sort((a,b)=>b.n-a.n);
-  document.getElementById('staffPerfCount').textContent=`${rows.length}名`;
-  if(!rows.length){document.getElementById('staffPerfBody').innerHTML=`<tr><td colspan="9" class="empty">データなし</td></tr>`;return;}
-  document.getElementById('staffPerfBody').innerHTML=rows.map(d=>{
-    const bizLabel=d.biz==='mcl'
-      ?`<span class="chip cb">MCL</span>`
-      :`<span class="chip" style="background:var(--stl-light);color:var(--stl);">STL</span>`;
-    const conRate=d.n>0?d.con/d.n:0;
-    const avgUnit=d.con>0?d.conAmt/d.con:0;
-    const cpi=d.n>0?d.conAmt/d.n:0;
-    const upsellRate=d.con>0?d.upsellCon/d.con:0;
-    const upsellAvg=d.upsellCon>0?d.upsellAmt/d.upsellCon:0;
-    return `<tr>
-      <td>${bizLabel}</td>
-      <td class="nm">${d.name}</td>
-      <td class="nr">${fmt(d.n)}</td>
-      <td class="nr">${fmt(d.con)}</td>
-      <td class="nr">${chip(conRate)}</td>
-      <td class="nr">${yenCeil(avgUnit)}</td>
-      <td class="nr">${yenCeil(cpi)}</td>
-      <td class="nr">${d.con>0?pct(upsellRate):'–'}</td>
-      <td class="nr">${d.upsellCon>0?yenCeil(upsellAvg):'–'}</td>
-    </tr>`;
-  }).join('');
-}
+  const allRows = Object.values(map).sort((a,b) => b.n - a.n);
 
-/* ===== 店舗サマリーテーブル ===== */
-function renderTable(k) {
-  const map={};
-  DATA.filter(isVisit).forEach(r=>{const biz=r._biz||'?',s=r[C.店舗]||'(不明)',key=`${biz}__${s}`;
-    if(!map[key])map[key]={biz,store:s,n:0,con:0,trial:0,ca:0,unk:0,ca_amt:0,pay:0};
-    map[key].n++;
-    if(isContract(r)){map[key].con++;map[key].ca_amt+=pn(r[C.契約金額]);map[key].pay+=pn(r[C.入金額]);}
-    if(isTrialType(r))map[key].trial++;
-    if(isCAOnly(r))map[key].ca++;
-    if(isUnknown(r))map[key].unk++;
-  });
-  const rows=Object.values(map).sort((a,b)=>b.n-a.n);
-  document.getElementById('tblCount').textContent=`${rows.length}店舗 / ${DATA.length.toLocaleString()}件`;
-  if(!rows.length){document.getElementById('tBody').innerHTML=`<tr><td colspan="11" class="empty">データなし</td></tr>`;return;}
-  document.getElementById('tBody').innerHTML=rows.map(d=>{
-    const cr=d.n>0?d.con/d.n:0, unpaid=d.ca_amt-d.pay;
-    const bizLabel=d.biz==='mcl'?`<span class="chip cb">MCL</span>`:`<span class="chip" style="background:var(--stl-light);color:var(--stl);">STL</span>`;
-    return `<tr><td>${bizLabel}</td><td class="nm">${d.store}</td><td class="nr">${fmt(d.n)}</td><td class="nr">${fmt(d.con)}</td><td class="nr">${chip(cr)}</td><td class="nr">${fmt(d.trial)}</td><td class="nr">${fmt(d.ca)}</td><td class="nr">${d.unk>0?`<span class="chip cd">${d.unk}</span>`:'–'}</td><td class="yn">${yen(d.ca_amt)}</td><td class="yn">${yen(d.pay)}</td><td class="nr" style="color:${unpaid>0?'var(--amber)':'var(--green)'}">${yen(unpaid)}</td></tr>`;
-  }).join('');
+  function buildRows(rows) {
+    if (!rows.length) return `<tr><td colspan="8" class="empty">データなし</td></tr>`;
+    return rows.map(d => {
+      const conRate   = d.n>0 ? d.con/d.n : 0;
+      const avgUnit   = d.con>0 ? d.conAmt/d.con : 0;
+      const cpi       = d.n>0 ? d.conAmt/d.n : 0;
+      const upsellRate = d.con>0 ? d.upsellCon/d.con : 0;
+      const upsellAvg  = d.upsellCon>0 ? d.upsellAmt/d.upsellCon : 0;
+      return `<tr>
+        <td class="nm">${d.name}</td>
+        <td class="nr">${fmt(d.n)}</td>
+        <td class="nr">${fmt(d.con)}</td>
+        <td class="nr">${chip(conRate)}</td>
+        <td class="nr">${yenCeil(avgUnit)}</td>
+        <td class="nr">${yenCeil(cpi)}</td>
+        <td class="nr">${d.con>0?pct(upsellRate):'–'}</td>
+        <td class="nr">${d.upsellCon>0?yenCeil(upsellAvg):'–'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const mclRows = allRows.filter(d => d.biz==='mcl');
+  const stlRows = allRows.filter(d => d.biz==='stl');
+  document.getElementById('staffPerfMCLCount').textContent = `${mclRows.length}名`;
+  document.getElementById('staffPerfSTLCount').textContent = `${stlRows.length}名`;
+  document.getElementById('staffPerfMCLBody').innerHTML = buildRows(mclRows);
+  document.getElementById('staffPerfSTLBody').innerHTML = buildRows(stlRows);
 }
 function chip(rate){const p=(rate*100).toFixed(1)+'%';const cls=rate>=0.7?'cg':rate>=0.4?'cb':rate>=0.2?'cy':rate>0?'cr':'cd';return `<span class="chip ${cls}">${p}</span>`;}
 
