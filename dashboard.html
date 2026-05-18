@@ -487,13 +487,29 @@
   <!-- ===== 今月サマリー ===== -->
   <div id="secSummary">
     <div class="section-title">今月のサマリー</div>
-    <div class="goal-edit-bar">
-      <span style="font-size:11px;font-weight:700;color:var(--text1);">月次目標</span>
-      <label>MCL 来店目標 <input class="goal-input" id="gMclVisit" type="number" placeholder="例: 400"></label>
-      <label>MCL 契約目標 <input class="goal-input" id="gMclCon" type="number" placeholder="例: 280"></label>
-      <label>STL 来店目標 <input class="goal-input" id="gStlVisit" type="number" placeholder="例: 200"></label>
-      <label>STL 契約目標 <input class="goal-input" id="gStlCon" type="number" placeholder="例: 140"></label>
-      <button class="goal-save" onclick="saveGoals()">保存</button>
+    <div class="goal-edit-bar" style="flex-direction:column;align-items:stretch;gap:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;font-weight:700;color:var(--text1);">月次目標設定</span>
+        <button class="goal-save" onclick="saveGoals()">保存</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;color:var(--mcl);min-width:36px;">MCL</span>
+          <label style="font-size:11px;">契約率 <input class="goal-input" id="gMclConRate" type="number" step="0.1" placeholder="65">%</label>
+          <label style="font-size:11px;">契約単価 ¥<input class="goal-input" id="gMclAvgUnit" type="number" placeholder="50000"></label>
+          <span style="font-size:11px;color:var(--text2);">CPI: <span id="gMclCpiAuto" style="font-weight:700;color:var(--green);">—</span>(自動)</span>
+          <label style="font-size:11px;">US率 <input class="goal-input" id="gMclUsRate" type="number" step="0.1" placeholder="40">%</label>
+          <label style="font-size:11px;">US単価 ¥<input class="goal-input" id="gMclUsAvg" type="number" placeholder="40000"></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:700;color:var(--stl);min-width:36px;">STL</span>
+          <label style="font-size:11px;">契約率 <input class="goal-input" id="gStlConRate" type="number" step="0.1" placeholder="65">%</label>
+          <label style="font-size:11px;">契約単価 ¥<input class="goal-input" id="gStlAvgUnit" type="number" placeholder="50000"></label>
+          <span style="font-size:11px;color:var(--text2);">CPI: <span id="gStlCpiAuto" style="font-weight:700;color:var(--green);">—</span>(自動)</span>
+          <label style="font-size:11px;">US率 <input class="goal-input" id="gStlUsRate" type="number" step="0.1" placeholder="40">%</label>
+          <label style="font-size:11px;">US単価 ¥<input class="goal-input" id="gStlUsAvg" type="number" placeholder="40000"></label>
+        </div>
+      </div>
     </div>
     <div class="sum2-grid" id="summaryBanner">
       <div class="loading" style="height:120px;"><div class="spin"></div></div>
@@ -964,9 +980,6 @@ function renderSummary() {
     const fillCls = isMCL ? 'mcl-fill' : 'stl-fill';
     const label = isMCL ? '♂ MCL' : '♀ STL';
 
-    const gVisit = goals[biz]?.visit || 0;
-    const gCon   = goals[biz]?.con   || 0;
-
     const max=k.n||1;
     const bars = [
       {label:'来店', n:k.n, color:'linear-gradient(90deg,#1d4ed8,#4f46e5)'},
@@ -980,18 +993,27 @@ function renderSummary() {
         <div class="rb-right"><div class="rb-count" style="font-size:${s.sub?'14':'17'}px">${fmt(s.n)}</div><div class="rb-pct">${pct(s.n/max)}</div></div>
       </div>`).join('');
 
-    function goalBar(label, actual, target, fillCls) {
+    function goalBar(label, actual, target, fillCls, fmt2) {
       if (!target) return '';
-      const pctVal = Math.min(actual/target*100,100);
-      const over = actual > target;
+      const ratio = Math.min(actual/target*100, 100);
+      const over  = actual >= target;
+      const aFmt  = fmt2(actual), tFmt = fmt2(target);
       return `<div class="goal-row">
         <span class="goal-label">${label}</span>
         <div class="goal-track">
-          <div class="goal-fill ${fillCls}" style="width:${pctVal.toFixed(1)}%">${pctVal>=15?fmt(actual)+'件':''}</div>
+          <div class="goal-fill ${fillCls}" style="width:${ratio.toFixed(1)}%">${ratio>=18?aFmt:''}</div>
         </div>
-        <span class="goal-meta" style="color:${over?'var(--green)':'var(--text2)'}">${fmt(actual)}/${fmt(target)} ${over?'✓':''}</span>
+        <span class="goal-meta" style="color:${over?'var(--green)':'var(--text2)'}">${aFmt}/${tFmt}${over?' ✓':''}</span>
       </div>`;
     }
+    const g = goals[biz] || {};
+    const gBars = [
+      g.conRate  ? goalBar('契約率',    k.conRate*100,   g.conRate,   fillCls, v=>v.toFixed(1)+'%') : '',
+      g.avgUnit  ? goalBar('契約単価',  k.avgUnit,       g.avgUnit,   fillCls, v=>'¥'+Math.ceil(v).toLocaleString('ja-JP')) : '',
+      g.cpi      ? goalBar('CPI',       k.cpi,           g.cpi,       fillCls, v=>'¥'+Math.ceil(v).toLocaleString('ja-JP')) : '',
+      g.upsellRate? goalBar('US率',     k.upsellRate*100,g.upsellRate,fillCls, v=>v.toFixed(1)+'%') : '',
+      g.upsellAvg ? goalBar('US単価',   k.upsellAvg,     g.upsellAvg, fillCls, v=>'¥'+Math.ceil(v).toLocaleString('ja-JP')) : '',
+    ].filter(Boolean).join('');
 
     return `
     <div class="sum2-card ${cls}">
@@ -1031,7 +1053,7 @@ function renderSummary() {
       </div>
       <div class="sum2-divider"></div>
       <div class="sum2-bars">${bars}</div>
-      ${(gVisit||gCon)?`<div class="sum2-divider"></div><div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em;">目標対比</div><div style="display:flex;flex-direction:column;gap:6px;">${goalBar('来店',k.n,gVisit,fillCls)}${goalBar('契約',k.con,gCon,fillCls)}</div>`:''}
+      ${gBars ? `<div class="sum2-divider"></div><div style="font-size:10px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em;">目標対比</div><div style="display:flex;flex-direction:column;gap:6px;">${gBars}</div>` : ''}
     </div>`;
   });
 
@@ -1372,20 +1394,37 @@ function navTo(id) {
 function loadGoals() {
   try { return JSON.parse(localStorage.getItem('bizGoals')||'{}'); } catch(e) { return {}; }
 }
+function updateCpiAuto(biz) {
+  const rate = parseFloat(document.getElementById(`g${biz}ConRate`).value)||0;
+  const unit = parseFloat(document.getElementById(`g${biz}AvgUnit`).value)||0;
+  const cpi  = rate > 0 && unit > 0 ? Math.ceil(unit * rate / 100) : 0;
+  document.getElementById(`g${biz}CpiAuto`).textContent = cpi > 0 ? `¥${cpi.toLocaleString('ja-JP')}` : '—';
+}
 function saveGoals() {
+  const parse = id => parseFloat(document.getElementById(id).value)||0;
+  const mclRate = parse('gMclConRate'), mclUnit = parse('gMclAvgUnit');
+  const stlRate = parse('gStlConRate'), stlUnit = parse('gStlAvgUnit');
   const g = {
-    mcl: { visit: parseInt(document.getElementById('gMclVisit').value)||0, con: parseInt(document.getElementById('gMclCon').value)||0 },
-    stl: { visit: parseInt(document.getElementById('gStlVisit').value)||0, con: parseInt(document.getElementById('gStlCon').value)||0 },
+    mcl: { conRate: mclRate, avgUnit: mclUnit, cpi: mclRate>0&&mclUnit>0?Math.ceil(mclUnit*mclRate/100):0, upsellRate: parse('gMclUsRate'), upsellAvg: parse('gMclUsAvg') },
+    stl: { conRate: stlRate, avgUnit: stlUnit, cpi: stlRate>0&&stlUnit>0?Math.ceil(stlUnit*stlRate/100):0, upsellRate: parse('gStlUsRate'), upsellAvg: parse('gStlUsAvg') },
   };
   localStorage.setItem('bizGoals', JSON.stringify(g));
   renderSummary();
+  alert('目標を保存しました');
 }
 function initGoalInputs() {
   const g = loadGoals();
-  if(g.mcl?.visit) document.getElementById('gMclVisit').value = g.mcl.visit;
-  if(g.mcl?.con)   document.getElementById('gMclCon').value   = g.mcl.con;
-  if(g.stl?.visit) document.getElementById('gStlVisit').value = g.stl.visit;
-  if(g.stl?.con)   document.getElementById('gStlCon').value   = g.stl.con;
+  for (const biz of ['Mcl','Stl']) {
+    const b = biz.toLowerCase();
+    const set = (id, val) => { if(val) document.getElementById(id).value = val; };
+    set(`g${biz}ConRate`, g[b]?.conRate);
+    set(`g${biz}AvgUnit`, g[b]?.avgUnit);
+    set(`g${biz}UsRate`,  g[b]?.upsellRate);
+    set(`g${biz}UsAvg`,   g[b]?.upsellAvg);
+    updateCpiAuto(biz);
+  }
+  ['gMclConRate','gMclAvgUnit'].forEach(id => document.getElementById(id)?.addEventListener('input', ()=>updateCpiAuto('Mcl')));
+  ['gStlConRate','gStlAvgUnit'].forEach(id => document.getElementById(id)?.addEventListener('input', ()=>updateCpiAuto('Stl')));
 }
 
 /* ===== Utils ===== */
@@ -1669,9 +1708,58 @@ async function generateInsights(mode='overall') {
       : '';
 
     if (isStaff) {
-      return `[${label}/${targetMonth} 担当者分析]
-今週${curW?.label||'-'} / 前週${prevW?.label||'なし'}
-${staffLines||'データなし'}`;
+      // 月累計担当者別
+      const sMonth = buildStaffMap(rows);
+      const allNames = Object.keys(sMonth).filter(n=>(sMonth[n]?.n||0)>0)
+        .sort((a,b)=>(sMonth[b]?.n||0)-(sMonth[a]?.n||0)).slice(0,10);
+
+      // ランキング計算（月累計）
+      const calcStaffKpi = (s) => ({
+        conRate: s.n>0 ? s.con/s.n : 0,
+        cpi:     s.n>0 ? s.conAmt/s.n : 0,
+        usRate:  s.con>0 ? s.upsell/s.con : 0,
+        usAvg:   s.upsell>0 ? s.upsellAmt/s.upsell : 0,
+        n: s.n, con: s.con,
+      });
+      const ranked = allNames.map(name=>({name, ...calcStaffKpi(sMonth[name])}));
+      const rankBy = (arr, key, desc=true) => [...arr].sort((a,b)=>desc?b[key]-a[key]:a[key]-b[key]).map((x,i)=>({...x, rank:i+1}));
+      const byConRate = rankBy(ranked,'conRate');
+      const byCpi     = rankBy(ranked,'cpi');
+      const byUsRate  = rankBy(ranked,'usRate');
+
+      // 月累計ライン（契約率・CPI・US率・順位付き）
+      const monthlyLines = allNames.map(name=>{
+        const kpi = ranked.find(r=>r.name===name);
+        const rCon = byConRate.find(r=>r.name===name)?.rank;
+        const rCpi = byCpi.find(r=>r.name===name)?.rank;
+        const rUs  = byUsRate.find(r=>r.name===name)?.rank;
+        return `${name}[月累計]:来客${kpi.n}件,契約${kpi.con}件,契約率${(kpi.conRate*100).toFixed(1)}%(${rCon}位),CPI¥${Math.ceil(kpi.cpi).toLocaleString()}(${rCpi}位),US率${(kpi.usRate*100).toFixed(1)}%(${rUs}位)${kpi.usAvg>0?',US単価¥'+Math.ceil(kpi.usAvg).toLocaleString():''}`;
+      }).join('\n');
+
+      // 週次前週比ライン（上位8名）
+      const weeklyLines = allNames.slice(0,8).map(name=>{
+        const c = sCur[name]||{n:0,con:0,conAmt:0,upsell:0,upsellAmt:0};
+        const p = sPrev[name];
+        const cConR = c.n>0?c.con/c.n:0, cCpi=c.n>0?c.conAmt/c.n:0;
+        const cUsR  = c.con>0?c.upsell/c.con:0, cUsA=c.upsell>0?c.upsellAmt/c.upsell:0;
+        const pConR = p&&p.n>0?p.con/p.n:null, pCpi=p&&p.n>0?p.conAmt/p.n:null;
+        const pUsR  = p&&p.con>0?p.upsell/p.con:null, pUsA=p&&p.upsell>0?p.upsellAmt/p.upsell:null;
+        const thisWeekN = c.n>0?`来客${c.n}件`:'今週来客なし';
+        return `${name}[今週]:${thisWeekN},契約率 ${arrowRate(pConR,cConR)},CPI ${arrowYen(pCpi,cCpi)},US率 ${arrowRate(pUsR,cUsR)}${cUsA>0?',US単価 '+arrowYen(pUsA,cUsA):''}`;
+      }).join('\n');
+
+      // 目標対比（設定があれば）
+      const goalSummary = (g.conRate||g.avgUnit||g.upsellRate)
+        ? `目標:契約率${g.conRate||'-'}%,契約単価¥${g.avgUnit?.toLocaleString()||'-'},CPI¥${g.cpi?.toLocaleString()||'-'},US率${g.upsellRate||'-'}%` : '';
+
+      return `[${label}/${targetMonth} 担当者詳細分析]
+今週:${curW?.label||'-'} / 前週:${prevW?.label||'なし'}${goalSummary?'\n'+goalSummary:''}
+
+【月累計ランキング（来客数順）】
+${monthlyLines||'データなし'}
+
+【週次前週比】
+${weeklyLines||'データなし'}`;
     }
 
     return `[${label}/${targetMonth}]
@@ -1689,28 +1777,35 @@ CP別:${cpLines||'データなし'}`;
 - 担当者名は必ず数値とセットで記載`;
 
   const prompt = isStaff
-    ? `美容脱毛サロンの担当者パフォーマンスコーチとして以下の担当者別KPIを分析してください。
+    ? `あなたは美容脱毛サロンの現場マネージャー向け担当者コーチングの専門家です。以下のデータを基に、マネージャーが明日の朝礼で使えるレベルの具体的・実践的な分析を行ってください。
 
 ${numRule}
 
 ${dataText}
 
-以下の構成でマークダウン形式で出力：
+以下の構成でマークダウン形式で出力してください：
 
-## 👥 担当者パフォーマンス総評
-今週の全体傾向を2〜3文。数値を必ず引用。
+## 🏅 今月の担当者ランキング（月累計）
+契約率・CPI・US率の各指標でトップ3を名前と実数値で明示。例:「契約率1位：〇〇 XX.X%」
 
-## 🏆 トップパフォーマー
-契約率・CPI・US率それぞれのトップを名前と「先週→今週」形式で。
+## 🏆 今週のMVP
+今週最も際立ったパフォーマンスの担当者を1名選定。選定理由を「先週→今週」形式の数値3つ以上で具体的に説明。
 
-## ⚠️ 要フォロー担当者
-課題担当者を名前・「先週→今週」数値・改善視点でセットで記載。
+## 📈 前週比 最大改善者・最大下落者
+**最大改善**：誰がどの指標でどれだけ改善したか（先週→今週形式で必ず数値記載）
+**最大下落**：誰がどの指標でどれだけ下落したか（先週→今週形式で必ず数値記載）
 
-## 📈 前週比 最大改善／最大下落
-最も改善した人・最も落ちた人を指標ごとに「先週→今週」形式で特定。
+## ⚠️ 要注意担当者（優先度順）
+月累計・今週データを踏まえ、課題のある担当者を2〜3名ピックアップ。各人について:
+- 現状の問題点（数値で明示）
+- 考えられる原因
+- 具体的な改善アクション
 
-## 🎯 個別コーチング提案（3点）
-担当者名を明示して「何を・どう改善するか・KPI目標値」を具体的に。`
+## 🎯 個別コーチングプラン
+要注意担当者それぞれに対して「今週中に試すべき具体的な接客改善アクション」を1つ、数値目標付きで提示。例:「〇〇さん：クロージング後のUS提案トークを必ず実施 → US率XX%→XX%を目指す」
+
+## 💡 チーム全体への一言アドバイス
+データから見えるチームの強みと、今週重点的に取り組むべきテーマを2〜3文で。`
     : `美容脱毛サロン現場改善コンサルタントとして以下KPIを分析してください。
 
 ${numRule}
@@ -1746,7 +1841,7 @@ ${dataText}
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1200,
+          max_tokens: isStaff ? 1500 : 1200,
         }),
       }
     );
