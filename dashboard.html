@@ -1572,8 +1572,9 @@ async function generateInsights() {
     // 週次グループ化
     const weekGroups = {};
     rows.forEach(r => {
-      if (!r._date) return;
-      const wg = getWeekGroup(r._date);
+      const d = parseDate(r[C.日付]);
+      if (!d) return;
+      const wg = getWeekGroup(d);
       if (!weekGroups[wg.key]) weekGroups[wg.key] = { label: wg.label, rows: [] };
       weekGroups[wg.key].rows.push(r);
     });
