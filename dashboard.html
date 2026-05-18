@@ -292,6 +292,11 @@
     .sum2-up-val { font-size:18px; font-weight:800; color:var(--purple); }
     @media (max-width:960px) { .sum2-grid { grid-template-columns:1fr; } .sum2-kpis { grid-template-columns:repeat(2,1fr); } }
 
+    /* ===== AUTO REFRESH ===== */
+    .btn-ar { background:var(--bg0); border:1px solid var(--border); color:var(--text1); padding:6px 14px; border-radius:var(--rs); cursor:pointer; font-size:12px; font-family:inherit; font-weight:600; transition:all 0.15s; font-variant-numeric:tabular-nums; }
+    .btn-ar:hover { background:var(--bg1); border-color:var(--border-h); }
+    .btn-ar.ar-on { background:#ecfdf5; border-color:#a7f3d0; color:var(--green); }
+
     /* ===== SORTABLE HEADERS ===== */
     th.sortable { cursor:pointer; user-select:none; transition:background 0.12s,color 0.12s; }
     th.sortable:hover { background:var(--bg1); color:var(--text0); }
@@ -314,6 +319,7 @@
   <div class="h-right">
     <span class="h-updated" id="hUpdated">–</span>
     <span class="h-badge" id="hBadge">–件</span>
+    <button class="btn-ar" id="arBtn" onclick="toggleAutoRefresh()">⏸ 自動更新</button>
     <button class="btn-icon" onclick="openGlossary()" title="用語解説">？</button>
     <button class="btn-ref" onclick="init()">↻ 更新</button>
   </div>
@@ -727,7 +733,7 @@ async function init() {
   document.getElementById('summaryBanner').innerHTML = `<div class="loading" style="height:120px;"><div class="spin"></div></div>`;
 
   const [visitResults, dailyResults, staffResults] = await Promise.all([
-    Promise.all(VISIT_SHEETS.map(s => fetchVisitSheet(s).then(rows => ({...s, rows, ok:rows.length>0})))),
+    loadAllVisitSheets(),
     Promise.all(DAILY_SHEETS.map(s => fetchDailySheet(s).then(rows => ({...s, rows, ok:rows.length>0})))),
     Promise.all(STAFF_SHEETS.map(s => fetchStaffSheet(s).then(rows => ({...s, rows, ok:rows.length>0})))),
   ]);
@@ -1405,8 +1411,85 @@ function exportCSV() {
   setTimeout(() => btn.textContent = orig, 2500);
 }
 
+/* ===== 自動更新 ===== */
+let AR_TIMER = null, AR_REMAINING = 0;
+const AR_MINUTES = 10;
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  AR_REMAINING = AR_MINUTES * 60;
+  AR_TIMER = setInterval(() => {
+    if (document.hidden) return;
+    AR_REMAINING--;
+    updateARBtn();
+    if (AR_REMAINING <= 0) { AR_REMAINING = AR_MINUTES * 60; init(); }
+  }, 1000);
+  updateARBtn();
+}
+function stopAutoRefresh() {
+  if (AR_TIMER) { clearInterval(AR_TIMER); AR_TIMER = null; }
+  updateARBtn();
+}
+function toggleAutoRefresh() { AR_TIMER ? stopAutoRefresh() : startAutoRefresh(); }
+function updateARBtn() {
+  const btn = document.getElementById('arBtn');
+  if (!btn) return;
+  if (!AR_TIMER) {
+    btn.textContent = '⏸ 自動更新'; btn.classList.remove('ar-on');
+  } else {
+    const m = Math.floor(AR_REMAINING/60), s = AR_REMAINING%60;
+    btn.textContent = `⟳ ${m}:${String(s).padStart(2,'0')}`; btn.classList.add('ar-on');
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && AR_TIMER && AR_REMAINING <= 0) init();
+});
+
+/* ===== シート自動検出（月次） ===== */
+function fetchVisitSheetByName(s) {
+  return new Promise(resolve => {
+    Papa.parse(gvizName(s.name), {
+      download:true, header:true, skipEmptyLines:true,
+      complete: r => resolve(r.data.filter(row=>Object.values(row).some(v=>v&&v.trim())).map(row=>{
+        const d = row['来店予定日']||'';
+        const m = d.match(/[\/\-](\d{1,2})[\/\-]/);
+        return {...row, _biz:s.biz, _month: m ? `${parseInt(m[1])}月` : s.month};
+      })),
+      error: ()=>resolve([]),
+    });
+  });
+}
+
+async function loadAllVisitSheets() {
+  const baseResults = await Promise.all(
+    VISIT_SHEETS.map(s => fetchVisitSheet(s).then(rows => ({...s, rows, ok:rows.length>0})))
+  );
+  const knownKeys = new Set(VISIT_SHEETS.map(s=>`${s.biz}_${s.month}`));
+
+  // 当月 ±3ヶ月を名前で探索（未知の月のみ）
+  const now = new Date();
+  const candidates = [];
+  for (let i = -3; i <= 2; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    const month = `${d.getMonth()+1}月`;
+    for (const biz of ['mcl','stl']) {
+      if (!knownKeys.has(`${biz}_${month}`)) {
+        const prefix = biz==='mcl' ? '【MCL】' : '【STL】';
+        candidates.push({biz, month, name:`${prefix}${month}`});
+      }
+    }
+  }
+
+  const probeResults = candidates.length ? await Promise.all(
+    candidates.map(s => fetchVisitSheetByName(s).then(rows => ({...s, rows, ok:rows.length>0})))
+  ) : [];
+
+  return [...baseResults, ...probeResults.filter(r=>r.ok)];
+}
+
 init();
 initGoalInputs();
+startAutoRefresh();
 </script>
 </body>
 </html>
