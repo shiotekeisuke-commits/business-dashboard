@@ -635,8 +635,11 @@ function fetchVisitSheet(s) {
       download:true, header:true, skipEmptyLines:true,
       complete: r => resolve(r.data.filter(row=>Object.values(row).some(v=>v&&v.trim())).map(row=>{
           const d = row['来店予定日'] || '';
-          const m = d.match(/[\/\-](\d{1,2})[\/\-]/);
-          const month = m ? `${parseInt(m[1])}月` : s.month;
+          const my = d.match(/^(\d{4})[\/\-](\d{1,2})/);       // YYYY/MM
+          const mu = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); // M/D/YYYY
+          const month = my ? `${my[1]}年${parseInt(my[2])}月`
+                       : mu ? `${mu[3]}年${parseInt(mu[1])}月`
+                       : `${new Date().getFullYear()}年${s.month}`;
           return {...row, _biz:s.biz, _month:month};
         })),
       error: ()=>resolve([]),
@@ -761,7 +764,7 @@ async function init() {
 /* ===== フィルター ===== */
 function buildFilters() {
   const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))]
-    .sort((a,b)=>parseInt(a)-parseInt(b));
+    .sort((a,b)=>monthOrder(a)-monthOrder(b));
   setSel('fMonth', months, true);
   setSel('fStore', uniq(RAW.map(r=>r[C.店舗]).filter(Boolean)).sort());
   setSel('fCP',    uniq(RAW.map(r=>r[C.CP]).filter(Boolean)).sort());
@@ -892,7 +895,7 @@ function renderTodaySummary() {
 
 /* ===== 今月サマリー ===== */
 function renderSummary() {
-  const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))].sort((a,b)=>parseInt(a)-parseInt(b));
+  const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))].sort((a,b)=>monthOrder(a)-monthOrder(b));
   const selectedMonth = v('fMonth');
   const targetMonth = selectedMonth || months[months.length - 1];
   const prevMonth = months[months.indexOf(targetMonth)-1] || null;
@@ -1354,6 +1357,7 @@ function initGoalInputs() {
 }
 
 /* ===== Utils ===== */
+function monthOrder(m){const r=m.match(/(\d{4})年(\d+)月/);return r?parseInt(r[1])*100+parseInt(r[2]):parseInt(m)||0;}
 function pn(s) { if(!s)return 0; const n=parseInt(String(s).replace(/[^\d\-]/g,''),10); return isNaN(n)?0:n; }
 function v(id){return document.getElementById(id).value;}
 function fmt(n){return(n||0).toLocaleString('ja-JP');}
@@ -1452,8 +1456,12 @@ function fetchVisitSheetByName(s) {
       download:true, header:true, skipEmptyLines:true,
       complete: r => resolve(r.data.filter(row=>Object.values(row).some(v=>v&&v.trim())).map(row=>{
         const d = row['来店予定日']||'';
-        const m = d.match(/[\/\-](\d{1,2})[\/\-]/);
-        return {...row, _biz:s.biz, _month: m ? `${parseInt(m[1])}月` : s.month};
+        const my = d.match(/^(\d{4})[\/\-](\d{1,2})/);
+        const mu2 = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        const month = my ? `${my[1]}年${parseInt(my[2])}月`
+                     : mu2 ? `${mu2[3]}年${parseInt(mu2[1])}月`
+                     : `${new Date().getFullYear()}年${s.month}`;
+        return {...row, _biz:s.biz, _month: month};
       })),
       error: ()=>resolve([]),
     });
