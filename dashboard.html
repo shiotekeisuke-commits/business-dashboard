@@ -1210,34 +1210,33 @@ function renderCP() {
     scales:{x:ax(),y:{...ax(),ticks:{color:'#475569',font:{size:10}}}}}});
 }
 
+/* ===== 週次グループ（水曜始まり・月境界対応） ===== */
+function getWeekGroup(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('/').map(Number);
+  if (!y || !m || !d) return null;
+  const lastDay = new Date(y, m, 0).getDate();
+  const firstDow = new Date(y, m-1, 1).getDay();
+  const daysToFirstWed = (3 - firstDow + 7) % 7;
+  const firstWed = 1 + daysToFirstWed;
+  let weekStart, weekEnd, weekNum;
+  if (daysToFirstWed > 0 && d < firstWed) {
+    weekStart = 1; weekEnd = firstWed - 1; weekNum = 1;
+  } else {
+    const base = daysToFirstWed === 0 ? 1 : firstWed;
+    const idx = Math.floor((d - base) / 7);
+    weekStart = base + idx * 7;
+    weekEnd = Math.min(weekStart + 6, lastDay);
+    weekNum = (daysToFirstWed > 0 ? 2 : 1) + idx;
+  }
+  const key = `${y}/${String(m).padStart(2,'0')}/${String(weekStart).padStart(2,'0')}`;
+  const label = `${m}/${weekStart}-${weekEnd}(W${weekNum})`;
+  return { key, label };
+}
+
 /* ===== 週次チャート（水曜始まり・月境界対応） ===== */
 function renderWeeklyCharts() {
   dc('weekly'); dc('weeklyRev');
-
-  // 月をまたがない週グループ: 月初〜最初の水曜前日がW1、以降は水〜火
-  function getWeekGroup(dateStr) {
-    if (!dateStr) return null;
-    const [y, m, d] = dateStr.split('/').map(Number);
-    if (!y || !m || !d) return null;
-    const lastDay = new Date(y, m, 0).getDate();
-    const firstDow = new Date(y, m-1, 1).getDay(); // 0=Sun,3=Wed
-    const daysToFirstWed = (3 - firstDow + 7) % 7;
-    const firstWed = 1 + daysToFirstWed; // 月の最初の水曜（1始まり）
-    let weekStart, weekEnd, weekNum;
-    if (daysToFirstWed > 0 && d < firstWed) {
-      // 月初〜最初の水曜前日 = W1
-      weekStart = 1; weekEnd = firstWed - 1; weekNum = 1;
-    } else {
-      const base = daysToFirstWed === 0 ? 1 : firstWed;
-      const idx = Math.floor((d - base) / 7);
-      weekStart = base + idx * 7;
-      weekEnd = Math.min(weekStart + 6, lastDay);
-      weekNum = (daysToFirstWed > 0 ? 2 : 1) + idx;
-    }
-    const key = `${y}/${String(m).padStart(2,'0')}/${String(weekStart).padStart(2,'0')}`;
-    const label = `${m}/${weekStart}-${weekEnd}(W${weekNum})`;
-    return { key, label };
-  }
 
   const bizList = BIZ==='both' ? ['mcl','stl'] : [BIZ];
   const COLS = { mcl:{c:'#059669',r:'#d97706'}, stl:{c:'#9333ea',r:'#ea580c'} };
