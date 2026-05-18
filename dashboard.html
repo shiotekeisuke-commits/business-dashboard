@@ -440,6 +440,10 @@
       <div class="fg"><span class="fg-label">担当者</span>
         <select class="fsel" id="fStaff" onchange="render()"><option value="">全担当者</option></select></div>
     </div>
+    <div class="fg" style="justify-content:flex-end;">
+      <span class="fg-label">エクスポート</span>
+      <button class="btn-ref" id="csvBtn" onclick="exportCSV()" style="white-space:nowrap;">📥 CSV出力</button>
+    </div>
   </div>
 
   <div class="data-status" id="dataStatus"></div>
@@ -1352,6 +1356,54 @@ function yenCeil(n){return'¥'+Math.ceil(n||0).toLocaleString('ja-JP');}
 function pct(n){return((n||0)*100).toFixed(1)+'%';}
 function uniq(a){return[...new Set(a)];}
 function setBiz(biz){BIZ=biz;document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.biz===biz));render();}
+
+/* ===== CSV エクスポート ===== */
+function exportCSV() {
+  if (!DATA.length) { alert('エクスポートするデータがありません'); return; }
+
+  const cols = [
+    { label:'事業',     get: r => r._biz==='mcl'?'MCL':'STL' },
+    { label:'月',       get: r => r._month||'' },
+    { label:'来店予定日', get: r => r[C.日付]||'' },
+    { label:'店舗名',   get: r => r[C.店舗]||'' },
+    { label:'担当者',   get: r => r[C.担当者]||'' },
+    { label:'カテゴリ', get: r => r[C.カテゴリ]||'' },
+    { label:'CP名',     get: r => r[C.CP]||'' },
+    { label:'来店状況', get: r => r[C.来店状況]||'' },
+    { label:'契約状況', get: r => r[C.契約状況]||'' },
+    { label:'契約金額', get: r => pn(r[C.契約金額]) },
+    { label:'お試し額', get: r => pn(r[C.お試し額]) },
+    { label:'申し込み額',get: r => pn(r[C.契約金額])+pn(r[C.お試し額]) },
+    { label:'入金額',   get: r => pn(r[C.入金額]) },
+    { label:'支払方法', get: r => r[C.支払方法]||'' },
+    { label:'来店判定', get: r => isVisit(r)?'○':'' },
+    { label:'契約判定', get: r => isContract(r)?'○':'' },
+    { label:'US判定',   get: r => isUpsell(r)?'○':'' },
+  ];
+
+  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+  const header = cols.map(c => esc(c.label)).join(',');
+  const body   = DATA.map(r => cols.map(c => esc(c.get(r))).join(',')).join('\n');
+  const csv    = '\uFEFF' + header + '\n' + body; // BOM付きUTF-8（Excel対応）
+
+  const biz   = BIZ==='both'?'両事業':BIZ.toUpperCase();
+  const month = v('fMonth')||'全月';
+  const now   = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const fname = `dashboard_${biz}_${month}_${stamp}.csv`;
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href:url, download:fname });
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+
+  // ボタンに件数フィードバック
+  const btn = document.getElementById('csvBtn');
+  const orig = btn.textContent;
+  btn.textContent = `✓ ${DATA.length.toLocaleString()}件 出力済み`;
+  setTimeout(() => btn.textContent = orig, 2500);
+}
 
 init();
 initGoalInputs();
