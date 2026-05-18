@@ -504,8 +504,8 @@
       <button class="ai-key-toggle" onclick="toggleApiKeyBar()" title="APIキー設定">⚙</button>
     </div>
     <div class="goal-edit-bar" id="apiKeyBar" style="display:none">
-      <span style="font-size:11px;font-weight:700;color:var(--text1);">Anthropic APIキー</span>
-      <input type="password" id="apiKeyInput" class="goal-input" style="width:260px;" placeholder="sk-ant-api03-...">
+      <span style="font-size:11px;font-weight:700;color:var(--text1);">Gemini APIキー</span>
+      <input type="password" id="apiKeyInput" class="goal-input" style="width:260px;" placeholder="AIza...">
       <button class="goal-save" onclick="saveApiKey()">保存</button>
       <span style="font-size:10px;color:var(--text2);">キーはこのブラウザ内にのみ保存されます</span>
     </div>
@@ -1532,10 +1532,10 @@ function toggleApiKeyBar() {
 }
 function saveApiKey() {
   const key = document.getElementById('apiKeyInput').value.trim();
-  if (key) { localStorage.setItem('claudeApiKey', key); alert('APIキーを保存しました'); }
+  if (key) { localStorage.setItem('geminiApiKey', key); alert('APIキーを保存しました'); }
 }
 function loadApiKey() {
-  const key = localStorage.getItem('claudeApiKey');
+  const key = localStorage.getItem('geminiApiKey');
   if (key) document.getElementById('apiKeyInput').value = key;
 }
 
@@ -1552,7 +1552,7 @@ function md2html(text) {
 }
 
 async function generateInsights() {
-  const apiKey = localStorage.getItem('claudeApiKey');
+  const apiKey = localStorage.getItem('geminiApiKey');
   if (!apiKey) {
     document.getElementById('apiKeyBar').style.display = 'flex';
     document.getElementById('apiKeyInput').focus();
@@ -1613,20 +1613,17 @@ ${dataText}
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        messages: [{ role:'user', content:prompt }],
-      }),
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1024 },
+        }),
+      }
+    );
 
     if (!res.ok) {
       const err = await res.json().catch(()=>({}));
@@ -1634,7 +1631,7 @@ ${dataText}
     }
 
     const json = await res.json();
-    const text = json.content[0].text;
+    const text = json.candidates[0].content.parts[0].text;
     const now  = new Date();
     const time = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
