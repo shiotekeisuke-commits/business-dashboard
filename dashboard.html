@@ -1604,13 +1604,15 @@ async function generateInsights() {
     const arrowYen  = (p,c) => arrow(p,c,true,false);
     const arrowRate = (p,c) => arrow(p,c,false,true);
 
-    // 月内全週トレンド（現場コントロール指標のみ）
-    const weekTrend = weekKeys.map(k => {
+    // 月内週次推移（直近3週のみ・コンパクト）
+    const recentWeeks = weekKeys.slice(-3);
+    const weekTrend = recentWeeks.map(k => {
       const kw = calcKPI(weekGroups[k].rows);
-      return `  ${weekGroups[k].label}: 契約率${pct(kw.conRate)} CPI${yenCeil(kw.cpi)} US率${pct(kw.upsellRate)} US単価${kw.upsellCon>0?yenCeil(kw.upsellAvg):'-'}`;
-    }).join('\n');
+      const d = v => v!=null?v:'-';
+      return `${weekGroups[k].label}:契約率${pct(kw.conRate)},CPI${yenCeil(kw.cpi)},US率${pct(kw.upsellRate)}`;
+    }).join(' / ');
 
-    // 担当者別（今週・前週それぞれ集計して個人差分）
+    // 担当者別（上位8名・差分のみコンパクト表示）
     function buildStaffMap(wRows) {
       const map = {};
       (wRows||[]).filter(isVisit).forEach(r => {
@@ -1624,103 +1626,70 @@ async function generateInsights() {
     }
     const sCur  = buildStaffMap(curW?.rows);
     const sPrev = buildStaffMap(prevW?.rows);
-    const allNames = [...new Set([...Object.keys(sCur),...Object.keys(sPrev)])];
-    const staffLines = allNames
+    const staffLines = Object.keys(sCur)
       .filter(n => (sCur[n]?.n||0) > 0)
       .sort((a,b) => (sCur[b]?.n||0)-(sCur[a]?.n||0))
+      .slice(0, 8)
       .map(name => {
-        const c = sCur[name]  || {n:0,con:0,conAmt:0,upsell:0,upsellAmt:0};
-        const p = sPrev[name] || null;
-        const cConR = c.n>0 ? c.con/c.n : 0;
-        const cCpi  = c.n>0 ? c.conAmt/c.n : 0;
-        const cUsR  = c.con>0 ? c.upsell/c.con : 0;
-        const cUsA  = c.upsell>0 ? c.upsellAmt/c.upsell : 0;
-        const pConR = p&&p.n>0 ? p.con/p.n : null;
-        const pCpi  = p&&p.n>0 ? p.conAmt/p.n : null;
-        const pUsR  = p&&p.con>0 ? p.upsell/p.con : null;
-        const pUsA  = p&&p.upsell>0 ? p.upsellAmt/p.upsell : null;
-        return `  ${name}: 契約率 ${arrowRate(pConR,cConR)} / CPI ${arrowYen(pCpi,cCpi)} / US率 ${arrowRate(pUsR,cUsR)} / US単価 ${cUsA>0?arrowYen(pUsA,cUsA):'-'}`;
+        const c = sCur[name], p = sPrev[name];
+        const conR = c.n>0 ? (c.con/c.n*100).toFixed(0) : 0;
+        const cpi  = c.n>0 ? Math.ceil(c.conAmt/c.n) : 0;
+        const usR  = c.con>0 ? (c.upsell/c.con*100).toFixed(0) : 0;
+        const dConR = p&&p.n>0&&c.n>0 ? `(${((c.con/c.n-p.con/p.n)*100)>=0?'+':''}${((c.con/c.n-p.con/p.n)*100).toFixed(1)}pt)` : '';
+        const dCpi  = p&&p.n>0&&c.n>0&&p.conAmt>0 ? `(${(c.conAmt/c.n-p.conAmt/p.n)>=0?'+':''}¥${Math.round(c.conAmt/c.n-p.conAmt/p.n).toLocaleString()})` : '';
+        return `${name}:契約率${conR}%${dConR} CPI¥${cpi.toLocaleString()}${dCpi} US率${usR}%`;
       }).join('\n');
 
-    // CP別月次成績（上位8件）
+    // CP別（上位5件・コンパクト）
     const cpMap = {};
     rows.filter(isVisit).forEach(r => {
-      const cp = r[C.CP]||'(未設定)';
+      const cp = r[C.CP]||'他';
       if (!cpMap[cp]) cpMap[cp]={n:0,con:0,conAmt:0};
       const c=cpMap[cp]; c.n++;
       if (isContract(r)){c.con++;c.conAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
     });
     const cpLines = Object.entries(cpMap)
-      .sort(([,a],[,b])=>b.n-a.n).slice(0,8)
-      .map(([cp,c])=>`  ${cp}: 来店${c.n}件 契約率${c.n>0?(c.con/c.n*100).toFixed(0):0}% CPI¥${c.n>0?Math.ceil(c.conAmt/c.n).toLocaleString('ja-JP'):'-'}`)
-      .join('\n');
+      .sort(([,a],[,b])=>b.n-a.n).slice(0,5)
+      .map(([cp,c])=>`${cp}:契約率${c.n>0?(c.con/c.n*100).toFixed(0):0}% CPI¥${c.n>0?Math.ceil(c.conAmt/c.n).toLocaleString():'-'}`)
+      .join(' / ');
 
-    // 月次目標
-    const goalLine = (g.visit||g.con)
-      ? `来店目標${g.visit||'-'}件(進捗${g.visit?Math.round(kMonth.n/g.visit*100)+'%':'-'}) 契約目標${g.con||'-'}件(進捗${g.con?Math.round(kMonth.con/g.con*100)+'%':'-'})`
-      : '(目標未設定)';
+    const goalLine = (g.con)
+      ? `契約目標${g.con}件,進捗${Math.round(kMonth.con/g.con*100)}%`
+      : '';
 
-    return `━━【${label}】${targetMonth}━━
-■月次累計（現場指標）: 契約率${pct(kMonth.conRate)} CPI${yenCeil(kMonth.cpi)} US率${pct(kMonth.upsellRate)} US単価${kMonth.upsellCon>0?yenCeil(kMonth.upsellAvg):'-'}
-■月次目標: ${goalLine}
-
-■月内週次推移（現場指標のみ）
-${weekTrend}
-
-■今週(${curW?.label||'-'}) 前週比
-  契約率:   ${arrowRate(kPrev?.conRate, kCur.conRate)}
-  契約単価: ${arrowYen(kPrev?.avgUnit, kCur.avgUnit)}
-  CPI:      ${arrowYen(kPrev?.cpi, kCur.cpi)}
-  US率:     ${arrowRate(kPrev?.upsellRate, kCur.upsellRate)}
-  US単価:   ${kCur.upsellCon>0 ? arrowYen(kPrev?.upsellCon>0?kPrev.upsellAvg:null, kCur.upsellAvg) : '-'}
-
-■今週担当者別（先週→今週形式）
-${staffLines||'  データなし'}
-
-■CP別月次成績
-${cpLines||'  データなし'}`;
+    return `[${label}/${targetMonth}]
+月累計:契約率${pct(kMonth.conRate)},CPI${yenCeil(kMonth.cpi)},US率${pct(kMonth.upsellRate)},US単価${kMonth.upsellCon>0?yenCeil(kMonth.upsellAvg):'-'}${goalLine?' | '+goalLine:''}
+週推移:${weekTrend}
+今週${curW?.label||'-'}前週比:契約率${arrowRate(kPrev?.conRate,kCur.conRate)},CPI${arrowYen(kPrev?.cpi,kCur.cpi)},US率${arrowRate(kPrev?.upsellRate,kCur.upsellRate)},US単価${kCur.upsellCon>0?arrowYen(kPrev?.upsellCon>0?kPrev.upsellAvg:null,kCur.upsellAvg):'-'}
+担当者(今週/前週比):
+${staffLines||'データなし'}
+CP別:${cpLines||'データなし'}`;
   }).join('\n\n');
 
-  const prompt = `あなたは美容脱毛サロンチェーン専任の現場改善コンサルタントです。
-以下のKPIデータを分析し、経営幹部・現場マネージャー向けの高品質なレポートを作成してください。
+  const prompt = `美容脱毛サロン現場改善コンサルタントとして、以下KPIデータを分析してください。
+分析対象：契約率・CPI・US率・US単価のみ（来店数・集客は対象外）。
+数値は必ず「先週XX→今週XX(差分)」形式で引用。担当者名は数値とセットで記載。曖昧表現禁止。
 
 ${dataText}
 
-【分析対象】契約率・CPI・アップセル率・単価など現場スタッフがコントロールできる指標のみ。来店数・集客は分析対象外。
-
-【数値の記載形式】必ず「先週XX→今週XX(+XX)」の形式で記載すること。データに既にこの形式で含まれているのでそのまま引用すること。
-
-【文体・品質基準】
-- プロフェッショナルなコンサルティングレポート調（断定的・簡潔・根拠ある表現）
-- 「〜と思われます」「〜かもしれません」などの曖昧表現禁止
-- 抽象的な評価語（「良好」「課題あり」）は必ず数値とセットで使用
-- 担当者名は必ず数値とセットで言及
-
-以下の構成で出力してください（マークダウン形式）：
+以下の構成でマークダウン形式で出力：
 
 ## 📊 今週の総評
-前週比の主要4指標（契約率・CPI・US率・US単価）の変化を数値で明示しながら、今週の現場パフォーマンスを3〜4文で総合評価。月次目標との進捗差にも言及。
+主要4指標の前週比を数値で示し3〜4文で評価。月次目標の進捗にも言及。
 
 ## 🔍 多角分析
-
 ### 週次トレンド
-月内の週次推移から見えるパターン（上昇基調・失速・回復など）を2〜3点、数値変化幅を引用しながら分析。
+直近週の流れを2点、数値引用で。
+### 担当者格差
+上位・下位・最大格差を名前付きで。前週比で最も改善/下落した人を明示。
+### CP効果
+契約率・CPI上位/下位CPを特定し示唆を述べる。
 
-### 担当者パフォーマンス格差
-今週の上位・下位担当者を指標ごとに明示。前週比で最も改善した人・最も落ちた人を名前付きで記載。担当者間の最大格差も数値で示すこと。
+## ⚠️ 重点課題（優先度順・3点）
+各課題に「現状値→目標値」を明記。
 
-### CP・施策効果分析
-契約率・CPIで優位なCP・劣位なCPを特定し、現場に与える示唆を述べること。
-
-## ⚠️ 重点課題（優先度順）
-対処すべき課題を優先度順に3点。各課題に「現状値 → 目標値」と「放置した場合のリスク」を明記。
-
-## 🎯 来週のアクション計画
-3〜4個の具体的アクション。各アクションに以下を含めること：
-- **実行者**：担当者名または役職
-- **アクション**：何を・いつ・どのように
-- **KPI目標**：具体的な数値目標（例：契約率XX%→XX%）
-- **優先度**：高／中／低`;
+## 🎯 来週のアクション計画（3点）
+各アクションに実行者・具体的行動・KPI目標を記載。`;
 
   const panel = document.getElementById('insightsPanel');
   const btn   = document.getElementById('aiBtn');
@@ -1738,9 +1707,9 @@ ${dataText}
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'llama-3.3-70b-versatile',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1500,
+          max_tokens: 1200,
         }),
       }
     );
