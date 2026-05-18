@@ -1567,10 +1567,11 @@ async function generateInsights() {
   const goals       = loadGoals();
 
   const dataText = bizList.map(biz => {
-    const rows  = RAW.filter(r => r._biz===biz && r._month===targetMonth);
+    const rows  = DATA.filter(r => r._biz===biz && r._month===targetMonth);
     const label = biz==='mcl' ? 'MCL（メンズ脱毛）' : 'STL（レディース脱毛）';
+    const g     = goals[biz] || {};
 
-    // 週次グループ化
+    // 週次グループ化（全週）
     const weekGroups = {};
     rows.forEach(r => {
       const d = parseDate(r[C.日付]);
@@ -1580,85 +1581,141 @@ async function generateInsights() {
       weekGroups[wg.key].rows.push(r);
     });
     const weekKeys = Object.keys(weekGroups).sort();
-    const curKey  = weekKeys[weekKeys.length - 1];
-    const prevKey = weekKeys[weekKeys.length - 2];
-    const curW    = weekGroups[curKey];
-    const prevW   = prevKey ? weekGroups[prevKey] : null;
-    const kCur    = calcKPI(curW?.rows || []);
-    const kPrev   = prevW ? calcKPI(prevW.rows) : null;
+    const curKey   = weekKeys[weekKeys.length - 1];
+    const prevKey  = weekKeys[weekKeys.length - 2];
+    const curW     = weekGroups[curKey];
+    const prevW    = prevKey ? weekGroups[prevKey] : null;
+    const kCur     = calcKPI(curW?.rows || []);
+    const kPrev    = prevW ? calcKPI(prevW.rows) : null;
+    const kMonth   = calcKPI(rows);
 
-    const wow = (cur, prev, isRate=false) => {
-      if (!kPrev || prev==null || (prev===0 && !isRate)) return '';
+    const wowStr = (cur, prev, isRate=false) => {
+      if (prev==null || (prev===0 && !isRate)) return '';
       const diff = isRate ? (cur-prev)*100 : prev===0 ? 0 : (cur-prev)/prev*100;
-      const sign = diff >= 0 ? '▲' : '▼';
-      return ` (前週比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'} ${sign})`;
+      return ` (前週比${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'})`;
     };
 
-    // 社員別KPI（今週・来店あり）
-    const staffMap = {};
-    (curW?.rows || []).filter(isVisit).forEach(r => {
-      const name = r[C.担当者] || '未設定';
-      if (!staffMap[name]) staffMap[name] = { n:0, con:0, conAmt:0, upsell:0, upsellAmt:0 };
-      const s = staffMap[name];
-      s.n++;
-      if (isContract(r)) { s.con++; s.conAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
-      if (isUpsell(r))   { s.upsell++; s.upsellAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
-    });
-    const staffLines = Object.entries(staffMap)
-      .filter(([,s]) => s.n > 0)
-      .sort(([,a],[,b]) => b.n - a.n)
-      .map(([name, s]) => {
-        const conR = s.n>0 ? (s.con/s.n*100).toFixed(0) : 0;
-        const cpi  = s.n>0 ? Math.ceil(s.conAmt/s.n).toLocaleString('ja-JP') : 0;
-        const usR  = s.con>0 ? (s.upsell/s.con*100).toFixed(0) : 0;
-        const usAvg= s.upsell>0 ? Math.ceil(s.upsellAmt/s.upsell).toLocaleString('ja-JP') : '-';
-        return `  ${name}: 来店${s.n}件 契約率${conR}% CPI¥${cpi} US率${usR}% US単価¥${usAvg}`;
+    // 月内全週トレンド
+    const weekTrend = weekKeys.map(k => {
+      const kw = calcKPI(weekGroups[k].rows);
+      return `  ${weekGroups[k].label}: 来店${kw.n}件 契約率${pct(kw.conRate)} CPI${yenCeil(kw.cpi)} US率${pct(kw.upsellRate)} US単価${kw.upsellCon>0?yenCeil(kw.upsellAvg):'-'}`;
+    }).join('\n');
+
+    // 担当者別（今週・前週それぞれ集計して個人差分）
+    function buildStaffMap(wRows) {
+      const map = {};
+      (wRows||[]).filter(isVisit).forEach(r => {
+        const name = r[C.担当者]||'未設定';
+        if (!map[name]) map[name] = {n:0,con:0,conAmt:0,upsell:0,upsellAmt:0};
+        const s = map[name]; s.n++;
+        if (isContract(r)){s.con++;s.conAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+        if (isUpsell(r))  {s.upsell++;s.upsellAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+      });
+      return map;
+    }
+    const sCur  = buildStaffMap(curW?.rows);
+    const sPrev = buildStaffMap(prevW?.rows);
+    const allNames = [...new Set([...Object.keys(sCur),...Object.keys(sPrev)])];
+    const staffLines = allNames
+      .filter(n => (sCur[n]?.n||0) > 0)
+      .sort((a,b) => (sCur[b]?.n||0)-(sCur[a]?.n||0))
+      .map(name => {
+        const c = sCur[name]  || {n:0,con:0,conAmt:0,upsell:0,upsellAmt:0};
+        const p = sPrev[name] || null;
+        const conR  = c.n>0 ? (c.con/c.n*100).toFixed(0) : 0;
+        const cpi   = c.n>0 ? Math.ceil(c.conAmt/c.n).toLocaleString('ja-JP') : '-';
+        const usR   = c.con>0 ? (c.upsell/c.con*100).toFixed(0) : 0;
+        const usAvg = c.upsell>0 ? Math.ceil(c.upsellAmt/c.upsell).toLocaleString('ja-JP') : '-';
+        let diff = '';
+        if (p && p.n>0 && c.n>0) {
+          const dConR = ((c.con/c.n)-(p.con/p.n))*100;
+          const dCpi  = p.conAmt/p.n>0 ? (c.conAmt/c.n - p.conAmt/p.n)/(p.conAmt/p.n)*100 : 0;
+          diff = ` ← 前週比 契約率${dConR>=0?'+':''}${dConR.toFixed(1)}pt CPI${dCpi>=0?'+':''}${dCpi.toFixed(0)}%`;
+        }
+        return `  ${name}: 来店${c.n}件 契約率${conR}% CPI¥${cpi} US率${usR}% US単価¥${usAvg}${diff}`;
       }).join('\n');
 
-    return `【${label}】${targetMonth}
-■ 今週(${curW?.label||'-'}) vs 前週(${prevW?.label||'なし'})
-  来店数:       今週 ${fmt(kCur.n)}件  前週 ${fmt(kPrev?.n??'-')}件
-  契約数:       今週 ${fmt(kCur.con)}件  前週 ${fmt(kPrev?.con??'-')}件
-  契約率:       今週 ${pct(kCur.conRate)}  前週 ${kPrev?pct(kPrev.conRate):'-'}${wow(kCur.conRate, kPrev?.conRate, true)}
-  契約単価:     今週 ${yenCeil(kCur.avgUnit)}  前週 ${kPrev?yenCeil(kPrev.avgUnit):'-'}${wow(kCur.avgUnit, kPrev?.avgUnit)}
-  CPI:          今週 ${yenCeil(kCur.cpi)}  前週 ${kPrev?yenCeil(kPrev.cpi):'-'}${wow(kCur.cpi, kPrev?.cpi)}
-  アップセル率: 今週 ${pct(kCur.upsellRate)}  前週 ${kPrev?pct(kPrev.upsellRate):'-'}${wow(kCur.upsellRate, kPrev?.upsellRate, true)}
-  US単価:       今週 ${kCur.upsellCon>0?yenCeil(kCur.upsellAvg):'データなし'}  前週 ${kPrev?.upsellCon>0?yenCeil(kPrev.upsellAvg):'-'}${kPrev?.upsellCon>0?wow(kCur.upsellAvg, kPrev.upsellAvg):''}
+    // CP別月次成績（上位8件）
+    const cpMap = {};
+    rows.filter(isVisit).forEach(r => {
+      const cp = r[C.CP]||'(未設定)';
+      if (!cpMap[cp]) cpMap[cp]={n:0,con:0,conAmt:0};
+      const c=cpMap[cp]; c.n++;
+      if (isContract(r)){c.con++;c.conAmt+=pn(r[C.契約金額])+pn(r[C.お試し額]);}
+    });
+    const cpLines = Object.entries(cpMap)
+      .sort(([,a],[,b])=>b.n-a.n).slice(0,8)
+      .map(([cp,c])=>`  ${cp}: 来店${c.n}件 契約率${c.n>0?(c.con/c.n*100).toFixed(0):0}% CPI¥${c.n>0?Math.ceil(c.conAmt/c.n).toLocaleString('ja-JP'):'-'}`)
+      .join('\n');
 
-■ 今週・担当者別（来店数順）
-${staffLines || '  データなし'}`;
+    // 月次目標
+    const goalLine = (g.visit||g.con)
+      ? `来店目標${g.visit||'-'}件(進捗${g.visit?Math.round(kMonth.n/g.visit*100)+'%':'-'}) 契約目標${g.con||'-'}件(進捗${g.con?Math.round(kMonth.con/g.con*100)+'%':'-'})`
+      : '(目標未設定)';
+
+    return `━━【${label}】${targetMonth}━━
+■月次累計: 来店${kMonth.n}件 契約率${pct(kMonth.conRate)} CPI${yenCeil(kMonth.cpi)} US率${pct(kMonth.upsellRate)} US単価${kMonth.upsellCon>0?yenCeil(kMonth.upsellAvg):'-'}
+■月次目標: ${goalLine}
+
+■月内週次推移
+${weekTrend}
+
+■今週(${curW?.label||'-'}) vs 前週(${prevW?.label||'なし'})
+  来店: ${kCur.n}件 vs ${kPrev?.n??'-'}件
+  契約率: ${pct(kCur.conRate)} vs ${kPrev?pct(kPrev.conRate):'-'}${wowStr(kCur.conRate,kPrev?.conRate,true)}
+  契約単価: ${yenCeil(kCur.avgUnit)} vs ${kPrev?yenCeil(kPrev.avgUnit):'-'}${wowStr(kCur.avgUnit,kPrev?.avgUnit)}
+  CPI: ${yenCeil(kCur.cpi)} vs ${kPrev?yenCeil(kPrev.cpi):'-'}${wowStr(kCur.cpi,kPrev?.cpi)}
+  US率: ${pct(kCur.upsellRate)} vs ${kPrev?pct(kPrev.upsellRate):'-'}${wowStr(kCur.upsellRate,kPrev?.upsellRate,true)}
+  US単価: ${kCur.upsellCon>0?yenCeil(kCur.upsellAvg):'-'} vs ${kPrev?.upsellCon>0?yenCeil(kPrev.upsellAvg):'-'}${kPrev?.upsellCon>0?wowStr(kCur.upsellAvg,kPrev.upsellAvg):''}
+
+■今週担当者別（前週比付き）
+${staffLines||'  データなし'}
+
+■CP別月次成績
+${cpLines||'  データなし'}`;
   }).join('\n\n');
 
-  const prompt = `あなたは美容脱毛サロンチェーンの現場改善アドバイザーです。
-以下の週次KPIと担当者別データをもとに、経営者・現場マネージャーが即行動できる詳細な日本語インサイトを出してください。
-集客・マーケ（来店数の増減）は分析対象外。契約率・CPI・US率・単価などの接客・クロージング力にフォーカスしてください。
+  const prompt = `あなたは美容脱毛サロンチェーン専任の現場改善コンサルタントです。
+以下の詳細KPIデータを多角的に分析し、経営者・現場マネージャーが翌週から即実行できる具体的なインサイトを出してください。
 
 ${dataText}
 
-【回答ルール】
-- 必ず実数値（%、円、件数）を引用すること。「改善傾向」「高い水準」などの抽象表現だけは禁止
-- 前週比の変化幅（何pt、何%増減）を必ず明示すること
-- 担当者名と具体的な数値をセットで言及すること
-- 推測・一般論ではなく、データに基づいた根拠ある分析をすること
+【分析の3軸】
+① 週次トレンド：月内の流れ・加速・減速パターン
+② 担当者格差：個人間の差異・前週比での伸び落ち
+③ CP別傾向：どの施策が現場で機能しているか
 
-以下の構成で詳しく回答してください（マークダウン使用可）：
+【必須ルール】
+- 全ての主張に実数値（%・円・件数）を添えること
+- 前週比の変化幅を数値で明示すること
+- 担当者名は必ず数値とセットで
+- 抽象表現のみの文章は禁止（「良好」「改善傾向」など単体NG）
+- アクション提案には具体的な数値目標を設定すること
 
-## 今週の総評
-今週全体のパフォーマンスを3〜4文で。前週比の数値変化（率・円単位）を具体的に入れて評価すること。
+以下の構成で回答してください（マークダウン形式）：
 
-## 注目ポイント（良い点・懸念点）
-5〜7個、それぞれ以下を含めること：
-- 指標名と実数値
-- 前週比の変化幅
-- その数値が意味すること（なぜ良い/悪いのか）
-- 該当する担当者がいれば名前と数値をセットで
+## 📊 今週の総評
+前週比の主要指標変化を数値で示しながら4〜5文で総合評価。月次目標との乖離にも言及すること。
 
-## 担当者別ハイライト
-- 今週トップパフォーマー：誰が・何の指標で・どんな数値を出したか
-- 要フォロー担当者：誰が・どの指標が・どのくらい課題か（責めるのではなく改善視点で）
+## 🔍 多角分析
 
-## 来週のアクション提案
-3〜4個、各アクションに「誰が・何を・なぜ・具体的にどう動くか」を含めること。数値目標も設定すること。`;
+### 週次トレンド
+月内の週次推移から見えるパターン・加速減速を2〜3点。数値の変化幅を必ず引用。
+
+### 担当者格差
+今週の最高値・最低値・差分を具体的に。前週比で伸びた人・落ちた人を名前付きで明示。
+
+### CP・施策別
+契約率・CPIが高い/低いCPはどれか。数値根拠を添えて現場への示唆を述べること。
+
+## ⚠️ 重点課題（優先度順）
+最優先で対処すべき課題を3点。各課題に「現状値 → 目標値」を明記。
+
+## 🎯 来週のアクション計画
+具体的アクションを3〜4個。各アクションに以下を含めること：
+- 実行者（役職・担当者）
+- 具体的な行動内容（何を・いつ・どのように）
+- 期待効果（数値目標）`;
 
   const panel = document.getElementById('insightsPanel');
   const btn   = document.getElementById('aiBtn');
@@ -1678,7 +1735,7 @@ ${dataText}
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1024,
+          max_tokens: 1800,
         }),
       }
     );
