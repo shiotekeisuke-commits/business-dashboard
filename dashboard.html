@@ -1588,35 +1588,75 @@ async function generateInsights() {
     const wow = (cur, prev, isRate=false) => {
       if (!kPrev || prev==null || (prev===0 && !isRate)) return '';
       const diff = isRate ? (cur-prev)*100 : prev===0 ? 0 : (cur-prev)/prev*100;
-      return ` (前週比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'})`;
+      const sign = diff >= 0 ? '▲' : '▼';
+      return ` (前週比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'} ${sign})`;
     };
 
-    return `【${label}】${targetMonth} ／ 今週: ${curW?.label||'-'} ／ 前週: ${prevW?.label||'なし'}
-契約率:       今週 ${pct(kCur.conRate)}${wow(kCur.conRate, kPrev?.conRate, true)}
-契約単価:     今週 ${yenCeil(kCur.avgUnit)}${wow(kCur.avgUnit, kPrev?.avgUnit)}
-CPI:          今週 ${yenCeil(kCur.cpi)}${wow(kCur.cpi, kPrev?.cpi)}
-アップセル率: 今週 ${pct(kCur.upsellRate)}${wow(kCur.upsellRate, kPrev?.upsellRate, true)}
-アップセル単価: 今週 ${kCur.upsellCon>0 ? yenCeil(kCur.upsellAvg) : 'データなし'}${kPrev?.upsellCon>0 ? wow(kCur.upsellAvg, kPrev?.upsellAvg) : ''}
-（参考／来店数: ${fmt(kCur.n)}件、契約数: ${fmt(kCur.con)}件）`;
+    // 社員別KPI（今週・来店あり）
+    const staffMap = {};
+    (curW?.rows || []).filter(isVisit).forEach(r => {
+      const name = r[C.担当者] || '未設定';
+      if (!staffMap[name]) staffMap[name] = { n:0, con:0, conAmt:0, upsell:0, upsellAmt:0 };
+      const s = staffMap[name];
+      s.n++;
+      if (isContract(r)) { s.con++; s.conAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
+      if (isUpsell(r))   { s.upsell++; s.upsellAmt += pn(r[C.契約金額])+pn(r[C.お試し額]); }
+    });
+    const staffLines = Object.entries(staffMap)
+      .filter(([,s]) => s.n > 0)
+      .sort(([,a],[,b]) => b.n - a.n)
+      .map(([name, s]) => {
+        const conR = s.n>0 ? (s.con/s.n*100).toFixed(0) : 0;
+        const cpi  = s.n>0 ? Math.ceil(s.conAmt/s.n).toLocaleString('ja-JP') : 0;
+        const usR  = s.con>0 ? (s.upsell/s.con*100).toFixed(0) : 0;
+        const usAvg= s.upsell>0 ? Math.ceil(s.upsellAmt/s.upsell).toLocaleString('ja-JP') : '-';
+        return `  ${name}: 来店${s.n}件 契約率${conR}% CPI¥${cpi} US率${usR}% US単価¥${usAvg}`;
+      }).join('\n');
+
+    return `【${label}】${targetMonth}
+■ 今週(${curW?.label||'-'}) vs 前週(${prevW?.label||'なし'})
+  来店数:       今週 ${fmt(kCur.n)}件  前週 ${fmt(kPrev?.n??'-')}件
+  契約数:       今週 ${fmt(kCur.con)}件  前週 ${fmt(kPrev?.con??'-')}件
+  契約率:       今週 ${pct(kCur.conRate)}  前週 ${kPrev?pct(kPrev.conRate):'-'}${wow(kCur.conRate, kPrev?.conRate, true)}
+  契約単価:     今週 ${yenCeil(kCur.avgUnit)}  前週 ${kPrev?yenCeil(kPrev.avgUnit):'-'}${wow(kCur.avgUnit, kPrev?.avgUnit)}
+  CPI:          今週 ${yenCeil(kCur.cpi)}  前週 ${kPrev?yenCeil(kPrev.cpi):'-'}${wow(kCur.cpi, kPrev?.cpi)}
+  アップセル率: 今週 ${pct(kCur.upsellRate)}  前週 ${kPrev?pct(kPrev.upsellRate):'-'}${wow(kCur.upsellRate, kPrev?.upsellRate, true)}
+  US単価:       今週 ${kCur.upsellCon>0?yenCeil(kCur.upsellAvg):'データなし'}  前週 ${kPrev?.upsellCon>0?yenCeil(kPrev.upsellAvg):'-'}${kPrev?.upsellCon>0?wow(kCur.upsellAvg, kPrev.upsellAvg):''}
+
+■ 今週・担当者別（来店数順）
+${staffLines || '  データなし'}`;
   }).join('\n\n');
 
-  const prompt = `あなたは美容脱毛サロンの現場改善アドバイザーです。
-以下は現場スタッフの接客・クロージング力に関するKPIです。集客・マーケティング領域（来店数など）は分析対象外です。
-前週比の変化を軸に、現場で即実践できる日本語のインサイトをください。
+  const prompt = `あなたは美容脱毛サロンチェーンの現場改善アドバイザーです。
+以下の週次KPIと担当者別データをもとに、経営者・現場マネージャーが即行動できる詳細な日本語インサイトを出してください。
+集客・マーケ（来店数の増減）は分析対象外。契約率・CPI・US率・単価などの接客・クロージング力にフォーカスしてください。
 
 ${dataText}
 
-以下の構成で回答してください（マークダウン使用可）：
-## 今週の総評
-今週の現場パフォーマンスを2〜3文で端的に。前週比の変化を必ず触れる。
+【回答ルール】
+- 必ず実数値（%、円、件数）を引用すること。「改善傾向」「高い水準」などの抽象表現だけは禁止
+- 前週比の変化幅（何pt、何%増減）を必ず明示すること
+- 担当者名と具体的な数値をセットで言及すること
+- 推測・一般論ではなく、データに基づいた根拠ある分析をすること
 
-## 注目ポイント
-- 良い点・懸念点を3〜5個、数字と前週比を引用しながら具体的に
+以下の構成で詳しく回答してください（マークダウン使用可）：
+
+## 今週の総評
+今週全体のパフォーマンスを3〜4文で。前週比の数値変化（率・円単位）を具体的に入れて評価すること。
+
+## 注目ポイント（良い点・懸念点）
+5〜7個、それぞれ以下を含めること：
+- 指標名と実数値
+- 前週比の変化幅
+- その数値が意味すること（なぜ良い/悪いのか）
+- 該当する担当者がいれば名前と数値をセットで
+
+## 担当者別ハイライト
+- 今週トップパフォーマー：誰が・何の指標で・どんな数値を出したか
+- 要フォロー担当者：誰が・どの指標が・どのくらい課題か（責めるのではなく改善視点で）
 
 ## 来週のアクション提案
-- 現場スタッフが実践できる具体的な行動を2〜3個（誰が・何を・なぜ）
-
-契約率・CPI・アップセル率・単価など接客・クロージング力にフォーカスしてください。来店数・集客の考察は不要です。`;
+3〜4個、各アクションに「誰が・何を・なぜ・具体的にどう動くか」を含めること。数値目標も設定すること。`;
 
   const panel = document.getElementById('insightsPanel');
   const btn   = document.getElementById('aiBtn');
