@@ -501,7 +501,8 @@
 
     <!-- AI インサイト -->
     <div class="ai-bar">
-      <button class="ai-btn" id="aiBtn" onclick="generateInsights()">🤖 AIインサイト生成</button>
+      <button class="ai-btn" id="aiBtn" onclick="generateInsights('overall')">📊 全体インサイト</button>
+      <button class="ai-btn" id="aiStaffBtn" onclick="generateInsights('staff')" style="background:linear-gradient(135deg,#059669,#0d9488);">👥 担当者インサイト</button>
       <button class="ai-key-toggle" onclick="toggleApiKeyBar()" title="APIキー設定">⚙</button>
     </div>
     <div class="goal-edit-bar" id="apiKeyBar" style="display:none">
@@ -1552,7 +1553,7 @@ function md2html(text) {
     .replace(/\n/g,'<br>');
 }
 
-async function generateInsights() {
+async function generateInsights(mode='overall') {
   const apiKey = localStorage.getItem('groqApiKey');
   if (!apiKey) {
     document.getElementById('apiKeyBar').style.display = 'flex';
@@ -1560,11 +1561,18 @@ async function generateInsights() {
     return;
   }
 
+  const isStaff = mode === 'staff';
   const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))].sort((a,b)=>monthOrder(a)-monthOrder(b));
   const targetMonth = v('fMonth') || months[months.length-1];
-  const prevMonth   = months[months.indexOf(targetMonth)-1] || null;
   const bizList     = BIZ==='both' ? ['mcl','stl'] : [BIZ];
   const goals       = loadGoals();
+
+  const panel = document.getElementById('insightsPanel');
+  const btn   = isStaff ? document.getElementById('aiStaffBtn') : document.getElementById('aiBtn');
+  panel.style.display = 'block';
+  panel.innerHTML = `<div class="loading"><div class="spin"></div> ${isStaff?'担当者データ':'全体データ'}を分析中…</div>`;
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  btn.disabled = true;
 
   const dataText = bizList.map(biz => {
     const rows  = DATA.filter(r => r._biz===biz && r._month===targetMonth);
@@ -1657,18 +1665,44 @@ async function generateInsights() {
       ? `契約目標${g.con}件,進捗${Math.round(kMonth.con/g.con*100)}%`
       : '';
 
+    if (isStaff) {
+      return `[${label}/${targetMonth} 担当者分析]
+今週${curW?.label||'-'} / 前週${prevW?.label||'なし'}
+${staffLines||'データなし'}`;
+    }
+
     return `[${label}/${targetMonth}]
 月累計:契約率${pct(kMonth.conRate)},CPI${yenCeil(kMonth.cpi)},US率${pct(kMonth.upsellRate)},US単価${kMonth.upsellCon>0?yenCeil(kMonth.upsellAvg):'-'}${goalLine?' | '+goalLine:''}
 週推移:${weekTrend}
-今週${curW?.label||'-'}前週比:契約率${arrowRate(kPrev?.conRate,kCur.conRate)},CPI${arrowYen(kPrev?.cpi,kCur.cpi)},US率${arrowRate(kPrev?.upsellRate,kCur.upsellRate)},US単価${kCur.upsellCon>0?arrowYen(kPrev?.upsellCon>0?kPrev.upsellAvg:null,kCur.upsellAvg):'-'}
-担当者(今週/前週比):
-${staffLines||'データなし'}
+今週前週比:契約率${arrowRate(kPrev?.conRate,kCur.conRate)},CPI${arrowYen(kPrev?.cpi,kCur.cpi)},US率${arrowRate(kPrev?.upsellRate,kCur.upsellRate)},US単価${kCur.upsellCon>0?arrowYen(kPrev?.upsellCon>0?kPrev.upsellAvg:null,kCur.upsellAvg):'-'}
 CP別:${cpLines||'データなし'}`;
   }).join('\n\n');
 
-  const prompt = `美容脱毛サロン現場改善コンサルタントとして、以下KPIデータを分析してください。
+  const prompt = isStaff
+    ? `美容脱毛サロンの担当者パフォーマンスコーチとして以下の担当者別KPIを分析してください。
+分析対象：契約率・CPI・US率のみ。数値は「先週XX→今週XX(差分)」形式で引用。曖昧表現禁止。
+
+${dataText}
+
+以下の構成でマークダウン形式で出力：
+
+## 👥 担当者パフォーマンス総評
+今週の担当者全体の傾向を2〜3文で。
+
+## 🏆 トップパフォーマー
+各指標（契約率・CPI・US率）のトップを名前と数値で。前週比も明記。
+
+## ⚠️ 要フォロー担当者
+課題のある担当者を名前・数値・具体的な改善点とセットで。責めるのでなく改善視点で。
+
+## 📈 前週比 最大改善／最大下落
+最も改善した人・最も落ちた人を各指標で特定し数値で示す。
+
+## 🎯 個別コーチング提案（3点）
+担当者名を明示して「何を・どう改善するか・目標値」を具体的に。`
+    : `美容脱毛サロン現場改善コンサルタントとして以下KPIを分析してください。
 分析対象：契約率・CPI・US率・US単価のみ（来店数・集客は対象外）。
-数値は必ず「先週XX→今週XX(差分)」形式で引用。担当者名は数値とセットで記載。曖昧表現禁止。
+数値は「先週XX→今週XX(差分)」形式で引用。曖昧表現禁止。
 
 ${dataText}
 
@@ -1680,22 +1714,14 @@ ${dataText}
 ## 🔍 多角分析
 ### 週次トレンド
 直近週の流れを2点、数値引用で。
-### 担当者格差
-上位・下位・最大格差を名前付きで。前週比で最も改善/下落した人を明示。
 ### CP効果
-契約率・CPI上位/下位CPを特定し示唆を述べる。
+契約率・CPI上位/下位CPを特定し現場への示唆を述べる。
 
 ## ⚠️ 重点課題（優先度順・3点）
 各課題に「現状値→目標値」を明記。
 
 ## 🎯 来週のアクション計画（3点）
 各アクションに実行者・具体的行動・KPI目標を記載。`;
-
-  const panel = document.getElementById('insightsPanel');
-  const btn   = document.getElementById('aiBtn');
-  panel.style.display = 'block';
-  panel.innerHTML = `<div class="loading"><div class="spin"></div> Claude が分析中…</div>`;
-  btn.disabled = true;
 
   try {
     const res = await fetch(
@@ -1724,9 +1750,10 @@ ${dataText}
     const now  = new Date();
     const time = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
+    const label = isStaff ? '👥 担当者インサイト' : '📊 全体インサイト';
     panel.innerHTML = `
       <div class="insights-header">
-        <span class="insights-badge">🤖 AI インサイト</span>
+        <span class="insights-badge">${label}</span>
         <span class="insights-meta">${targetMonth} · ${time} 生成</span>
       </div>
       <div class="insights-body">${md2html(text)}</div>`;
