@@ -1567,44 +1567,56 @@ async function generateInsights() {
 
   const dataText = bizList.map(biz => {
     const rows  = RAW.filter(r => r._biz===biz && r._month===targetMonth);
-    const rowsP = prevMonth ? RAW.filter(r => r._biz===biz && r._month===prevMonth) : [];
-    const k  = calcKPI(rows);
-    const kP = rowsP.length ? calcKPI(rowsP) : null;
-    const g  = goals[biz] || {};
     const label = biz==='mcl' ? 'MCL（メンズ脱毛）' : 'STL（レディース脱毛）';
 
-    const mom = (cur, prev, isRate=false) => {
-      if (!kP) return '';
-      const diff = isRate ? (cur-prev)*100 : (cur-prev)/prev*100;
-      return ` (前月比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'})`;
+    // 週次グループ化
+    const weekGroups = {};
+    rows.forEach(r => {
+      if (!r._date) return;
+      const wg = getWeekGroup(r._date);
+      if (!weekGroups[wg.key]) weekGroups[wg.key] = { label: wg.label, rows: [] };
+      weekGroups[wg.key].rows.push(r);
+    });
+    const weekKeys = Object.keys(weekGroups).sort();
+    const curKey  = weekKeys[weekKeys.length - 1];
+    const prevKey = weekKeys[weekKeys.length - 2];
+    const curW    = weekGroups[curKey];
+    const prevW   = prevKey ? weekGroups[prevKey] : null;
+    const kCur    = calcKPI(curW?.rows || []);
+    const kPrev   = prevW ? calcKPI(prevW.rows) : null;
+
+    const wow = (cur, prev, isRate=false) => {
+      if (!kPrev || prev==null || (prev===0 && !isRate)) return '';
+      const diff = isRate ? (cur-prev)*100 : prev===0 ? 0 : (cur-prev)/prev*100;
+      return ` (前週比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'})`;
     };
 
-    return `【${label}】対象月: ${targetMonth}
-来店数: ${fmt(k.n)}件${mom(k.n, kP?.n)}${g.visit ? ` / 月次目標: ${fmt(g.visit)}件 (達成率${(k.n/g.visit*100).toFixed(0)}%)` : ''}
-契約数: ${fmt(k.con)}件${mom(k.con, kP?.con)}${g.con ? ` / 月次目標: ${fmt(g.con)}件 (達成率${(k.con/g.con*100).toFixed(0)}%)` : ''}
-契約率: ${pct(k.conRate)}${mom(k.conRate, kP?.conRate, true)}
-契約単価: ${yenCeil(k.avgUnit)}${mom(k.avgUnit, kP?.avgUnit)}
-CPI: ${yenCeil(k.cpi)}${mom(k.cpi, kP?.cpi)}
-アップセル率: ${pct(k.upsellRate)}${mom(k.upsellRate, kP?.upsellRate, true)}
-アップセル単価: ${k.upsellCon>0 ? yenCeil(k.upsellAvg) : 'データなし'}`;
+    return `【${label}】${targetMonth} ／ 今週: ${curW?.label||'-'} ／ 前週: ${prevW?.label||'なし'}
+契約率:       今週 ${pct(kCur.conRate)}${wow(kCur.conRate, kPrev?.conRate, true)}
+契約単価:     今週 ${yenCeil(kCur.avgUnit)}${wow(kCur.avgUnit, kPrev?.avgUnit)}
+CPI:          今週 ${yenCeil(kCur.cpi)}${wow(kCur.cpi, kPrev?.cpi)}
+アップセル率: 今週 ${pct(kCur.upsellRate)}${wow(kCur.upsellRate, kPrev?.upsellRate, true)}
+アップセル単価: 今週 ${kCur.upsellCon>0 ? yenCeil(kCur.upsellAvg) : 'データなし'}${kPrev?.upsellCon>0 ? wow(kCur.upsellAvg, kPrev?.upsellAvg) : ''}
+（参考／来店数: ${fmt(kCur.n)}件、契約数: ${fmt(kCur.con)}件）`;
   }).join('\n\n');
 
-  const prompt = `あなたは美容脱毛サロンチェーンの敏腕経営アドバイザーです。
-以下のKPIデータを分析し、現場で即実践できる日本語のインサイトをください。
+  const prompt = `あなたは美容脱毛サロンの現場改善アドバイザーです。
+以下は現場スタッフの接客・クロージング力に関するKPIです。集客・マーケティング領域（来店数など）は分析対象外です。
+前週比の変化を軸に、現場で即実践できる日本語のインサイトをください。
 
 ${dataText}
 
 以下の構成で回答してください（マークダウン使用可）：
-## 総評
-今月の全体的な状況を2〜3文で端的に。
+## 今週の総評
+今週の現場パフォーマンスを2〜3文で端的に。前週比の変化を必ず触れる。
 
 ## 注目ポイント
-- 良い点・懸念点を合わせて3〜5個、数字を引用しながら具体的に
+- 良い点・懸念点を3〜5個、数字と前週比を引用しながら具体的に
 
-## 来週・来月のアクション提案
-- 誰が・何を・なぜやるべきか、具体的に2〜3個
+## 来週のアクション提案
+- 現場スタッフが実践できる具体的な行動を2〜3個（誰が・何を・なぜ）
 
-数字の背景にある意味と、現場が動けるアクションを重視してください。`;
+契約率・CPI・アップセル率・単価など接客・クロージング力にフォーカスしてください。来店数・集客の考察は不要です。`;
 
   const panel = document.getElementById('insightsPanel');
   const btn   = document.getElementById('aiBtn');
