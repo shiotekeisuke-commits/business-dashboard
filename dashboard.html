@@ -365,14 +365,14 @@
 <!-- ===== SUB NAV ===== -->
 <nav class="subnav">
   <div class="subnav-inner">
-    <button class="snav-link" onclick="scrollTo('secToday')">🔴 本日</button>
-    <button class="snav-link" onclick="scrollTo('secSummary')">📊 今月サマリー</button>
+    <button class="snav-link" onclick="navTo('secToday')">🔴 本日</button>
+    <button class="snav-link" onclick="navTo('secSummary')">📊 今月サマリー</button>
     <div class="snav-sep"></div>
-    <button class="snav-link" onclick="scrollTo('secDaily')">📅 日別推移</button>
-    <button class="snav-link" onclick="scrollTo('secWeekly')">📆 週次推移</button>
-    <button class="snav-link" onclick="scrollTo('secCP')">🎯 CP分析</button>
-    <button class="snav-link" onclick="scrollTo('secStaffPerf')">👥 社員別成績</button>
-    <button class="snav-link" onclick="scrollTo('secChat')">💬 データチャット</button>
+    <button class="snav-link" onclick="navTo('secDaily')">📅 日別推移</button>
+    <button class="snav-link" onclick="navTo('secWeekly')">📆 週次推移</button>
+    <button class="snav-link" onclick="navTo('secCP')">🎯 CP分析</button>
+    <button class="snav-link" onclick="navTo('secStaffPerf')">👥 社員別成績</button>
+    <button class="snav-link" onclick="navTo('secChat')">💬 データチャット</button>
   </div>
 </nav>
 
@@ -490,7 +490,7 @@
     </div>
   </div>
 
-  <div class="data-status" id="dataStatus"></div>
+  <div id="dataStatus" style="display:none"></div>
 
   <!-- ===== 本日のサマリー ===== -->
   <div id="secToday">
@@ -1408,7 +1408,7 @@ function closeGlossary(e) {
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeGlossary(); });
 
 /* ===== SCROLL NAV ===== */
-function scrollTo(id) {
+function navTo(id) {
   const el = document.getElementById(id);
   if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
