@@ -872,7 +872,7 @@ function renderTodaySummary() {
     </div>`;
 
   const cards = bizList.map(biz => {
-    const rows = RAW.filter(r => r._biz === biz && matchToday(r[C.日付]));
+    const rows = DATA.filter(r => r._biz === biz && matchToday(r[C.日付]));
     const isMCL = biz === 'mcl';
     const cls = isMCL ? 'mcl-card' : 'stl-card';
     const bizLabel = isMCL ? '♂ MCL' : '♀ STL';
@@ -952,8 +952,8 @@ function renderSummary() {
   const goals = loadGoals();
 
   const cards = bizList.map(biz => {
-    const rows  = RAW.filter(r => r._biz===biz && r._month===targetMonth);
-    const rowsP = prevMonth ? RAW.filter(r => r._biz===biz && r._month===prevMonth) : [];
+    const rows  = DATA.filter(r => r._biz===biz && r._month===targetMonth);
+    const rowsP = prevMonth ? DATA.filter(r => r._biz===biz && r._month===prevMonth) : [];
     const k  = calcKPI(rows);
     const kP = rowsP.length ? calcKPI(rowsP) : null;
 
@@ -1120,7 +1120,7 @@ function renderDailyCharts() {
 
   function buildDayMap(biz) {
     const map = {};
-    RAW.filter(r => {
+    DATA.filter(r => {
       if (r._biz !== biz) return false;
       if (selMonth && r._month !== selMonth) return false;
       return isVisit(r);
