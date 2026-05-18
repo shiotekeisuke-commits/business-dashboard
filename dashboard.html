@@ -1640,12 +1640,15 @@ async function generateInsights(mode='overall') {
       .slice(0, 8)
       .map(name => {
         const c = sCur[name], p = sPrev[name];
-        const conR = c.n>0 ? (c.con/c.n*100).toFixed(0) : 0;
-        const cpi  = c.n>0 ? Math.ceil(c.conAmt/c.n) : 0;
-        const usR  = c.con>0 ? (c.upsell/c.con*100).toFixed(0) : 0;
-        const dConR = p&&p.n>0&&c.n>0 ? `(${((c.con/c.n-p.con/p.n)*100)>=0?'+':''}${((c.con/c.n-p.con/p.n)*100).toFixed(1)}pt)` : '';
-        const dCpi  = p&&p.n>0&&c.n>0&&p.conAmt>0 ? `(${(c.conAmt/c.n-p.conAmt/p.n)>=0?'+':''}¥${Math.round(c.conAmt/c.n-p.conAmt/p.n).toLocaleString()})` : '';
-        return `${name}:契約率${conR}%${dConR} CPI¥${cpi.toLocaleString()}${dCpi} US率${usR}%`;
+        const cConR = c.n>0 ? c.con/c.n : 0;
+        const cCpi  = c.n>0 ? c.conAmt/c.n : 0;
+        const cUsR  = c.con>0 ? c.upsell/c.con : 0;
+        const cUsA  = c.upsell>0 ? c.upsellAmt/c.upsell : 0;
+        const pConR = p&&p.n>0 ? p.con/p.n : null;
+        const pCpi  = p&&p.n>0 ? p.conAmt/p.n : null;
+        const pUsR  = p&&p.con>0 ? p.upsell/p.con : null;
+        const pUsA  = p&&p.upsell>0 ? p.upsellAmt/p.upsell : null;
+        return `${name}: 契約率 ${arrowRate(pConR,cConR)} / CPI ${arrowYen(pCpi,cCpi)} / US率 ${arrowRate(pUsR,cUsR)}${cUsA>0?' / US単価 '+arrowYen(pUsA,cUsA):''}`;
       }).join('\n');
 
     // CP別（上位5件・コンパクト）
@@ -1678,42 +1681,50 @@ ${staffLines||'データなし'}`;
 CP別:${cpLines||'データなし'}`;
   }).join('\n\n');
 
+  const numRule = `【数値記載ルール・厳守】
+- 必ず「先週¥XX,XXX→今週¥XX,XXX(+¥X,XXX)」または「先週XX.X%→今週XX.X%(+X.Xpt)」形式で記載
+- データに既にこの形式で含まれているのでそのまま引用すること
+- 来店数・集客・マーケティング関連の言及は一切禁止
+- 「〜と思われます」「〜傾向があります」などの曖昧表現禁止
+- 担当者名は必ず数値とセットで記載`;
+
   const prompt = isStaff
     ? `美容脱毛サロンの担当者パフォーマンスコーチとして以下の担当者別KPIを分析してください。
-分析対象：契約率・CPI・US率のみ。数値は「先週XX→今週XX(差分)」形式で引用。曖昧表現禁止。
+
+${numRule}
 
 ${dataText}
 
 以下の構成でマークダウン形式で出力：
 
 ## 👥 担当者パフォーマンス総評
-今週の担当者全体の傾向を2〜3文で。
+今週の全体傾向を2〜3文。数値を必ず引用。
 
 ## 🏆 トップパフォーマー
-各指標（契約率・CPI・US率）のトップを名前と数値で。前週比も明記。
+契約率・CPI・US率それぞれのトップを名前と「先週→今週」形式で。
 
 ## ⚠️ 要フォロー担当者
-課題のある担当者を名前・数値・具体的な改善点とセットで。責めるのでなく改善視点で。
+課題担当者を名前・「先週→今週」数値・改善視点でセットで記載。
 
 ## 📈 前週比 最大改善／最大下落
-最も改善した人・最も落ちた人を各指標で特定し数値で示す。
+最も改善した人・最も落ちた人を指標ごとに「先週→今週」形式で特定。
 
 ## 🎯 個別コーチング提案（3点）
-担当者名を明示して「何を・どう改善するか・目標値」を具体的に。`
+担当者名を明示して「何を・どう改善するか・KPI目標値」を具体的に。`
     : `美容脱毛サロン現場改善コンサルタントとして以下KPIを分析してください。
-分析対象：契約率・CPI・US率・US単価のみ（来店数・集客は対象外）。
-数値は「先週XX→今週XX(差分)」形式で引用。曖昧表現禁止。
+
+${numRule}
 
 ${dataText}
 
 以下の構成でマークダウン形式で出力：
 
 ## 📊 今週の総評
-主要4指標の前週比を数値で示し3〜4文で評価。月次目標の進捗にも言及。
+契約率・CPI・US率・US単価の前週比を「先週→今週」形式で示し3〜4文で評価。月次目標の進捗にも言及。
 
 ## 🔍 多角分析
 ### 週次トレンド
-直近週の流れを2点、数値引用で。
+直近週の流れを「先週→今週」形式の数値で2点分析。
 ### CP効果
 契約率・CPI上位/下位CPを特定し現場への示唆を述べる。
 
