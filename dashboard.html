@@ -504,8 +504,8 @@
       <button class="ai-key-toggle" onclick="toggleApiKeyBar()" title="APIキー設定">⚙</button>
     </div>
     <div class="goal-edit-bar" id="apiKeyBar" style="display:none">
-      <span style="font-size:11px;font-weight:700;color:var(--text1);">Gemini APIキー</span>
-      <input type="password" id="apiKeyInput" class="goal-input" style="width:260px;" placeholder="AIza...">
+      <span style="font-size:11px;font-weight:700;color:var(--text1);">Groq APIキー</span>
+      <input type="password" id="apiKeyInput" class="goal-input" style="width:260px;" placeholder="gsk_...">
       <button class="goal-save" onclick="saveApiKey()">保存</button>
       <span style="font-size:10px;color:var(--text2);">キーはこのブラウザ内にのみ保存されます</span>
     </div>
@@ -1532,10 +1532,10 @@ function toggleApiKeyBar() {
 }
 function saveApiKey() {
   const key = document.getElementById('apiKeyInput').value.trim();
-  if (key) { localStorage.setItem('geminiApiKey', key); alert('APIキーを保存しました'); }
+  if (key) { localStorage.setItem('groqApiKey', key); alert('APIキーを保存しました'); }
 }
 function loadApiKey() {
-  const key = localStorage.getItem('geminiApiKey');
+  const key = localStorage.getItem('groqApiKey');
   if (key) document.getElementById('apiKeyInput').value = key;
 }
 
@@ -1552,7 +1552,7 @@ function md2html(text) {
 }
 
 async function generateInsights() {
-  const apiKey = localStorage.getItem('geminiApiKey');
+  const apiKey = localStorage.getItem('groqApiKey');
   if (!apiKey) {
     document.getElementById('apiKeyBar').style.display = 'flex';
     document.getElementById('apiKeyInput').focus();
@@ -1614,13 +1614,17 @@ ${dataText}
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`,
+      `https://api.groq.com/openai/v1/chat/completions`,
       {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 1024 },
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
         }),
       }
     );
@@ -1631,7 +1635,7 @@ ${dataText}
     }
 
     const json = await res.json();
-    const text = json.candidates[0].content.parts[0].text;
+    const text = json.choices[0].message.content;
     const now  = new Date();
     const time = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
