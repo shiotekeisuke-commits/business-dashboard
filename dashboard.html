@@ -1780,7 +1780,7 @@ function buildDataContext() {
       const usR  = s.con>0 ? (s.upsell/s.con*100).toFixed(0) : 0;
       const usAvg= s.upsell>0 ? Math.ceil(s.upsellAmt/s.upsell).toLocaleString('ja-JP') : '-';
       return `  [${s.biz}] ${s.name}: 来店${s.n}件 契約率${conR}% CPI¥${cpi} US率${usR}% US単価¥${usAvg}`;
-    }).join('\n');
+    });
   }
 
   function inRange(from, to) {
