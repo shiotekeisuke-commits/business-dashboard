@@ -292,6 +292,23 @@
     .sum2-up-val { font-size:18px; font-weight:800; color:var(--purple); }
     @media (max-width:960px) { .sum2-grid { grid-template-columns:1fr; } .sum2-kpis { grid-template-columns:repeat(2,1fr); } }
 
+    /* ===== AI INSIGHTS ===== */
+    .ai-bar { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .ai-btn { background:linear-gradient(135deg,#1d4ed8,#7c3aed); color:#fff; border:none; padding:8px 20px; border-radius:var(--rs); font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity 0.15s; display:flex; align-items:center; gap:6px; }
+    .ai-btn:hover { opacity:0.87; }
+    .ai-btn:disabled { opacity:0.5; cursor:wait; }
+    .ai-key-toggle { background:var(--bg0); border:1px solid var(--border); color:var(--text2); width:28px; height:28px; border-radius:var(--rs); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; margin-left:auto; transition:all 0.15s; font-family:inherit; }
+    .ai-key-toggle:hover { background:var(--bg1); color:var(--text1); }
+    .insights-panel { background:#fff; border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:var(--r); padding:22px 26px; margin-bottom:20px; box-shadow:var(--shadow); }
+    .insights-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .insights-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:20px; background:linear-gradient(135deg,#ede9fe,#dbeafe); color:var(--purple); border:1px solid #c4b5fd; }
+    .insights-meta { font-size:11px; color:var(--text2); margin-left:auto; }
+    .insights-body { font-size:13px; color:var(--text1); line-height:1.85; }
+    .insights-body h3 { font-size:13px; font-weight:800; color:var(--text0); margin:14px 0 6px; }
+    .insights-body ul { padding-left:18px; margin:4px 0 10px; }
+    .insights-body li { margin-bottom:4px; }
+    .insights-body strong { color:var(--text0); }
+
     /* ===== AUTO REFRESH ===== */
     .btn-ar { background:var(--bg0); border:1px solid var(--border); color:var(--text1); padding:6px 14px; border-radius:var(--rs); cursor:pointer; font-size:12px; font-family:inherit; font-weight:600; transition:all 0.15s; font-variant-numeric:tabular-nums; }
     .btn-ar:hover { background:var(--bg1); border-color:var(--border-h); }
@@ -480,6 +497,19 @@
     <div class="sum2-grid" id="summaryBanner">
       <div class="loading" style="height:120px;"><div class="spin"></div></div>
     </div>
+
+    <!-- AI インサイト -->
+    <div class="ai-bar">
+      <button class="ai-btn" id="aiBtn" onclick="generateInsights()">🤖 AIインサイト生成</button>
+      <button class="ai-key-toggle" onclick="toggleApiKeyBar()" title="APIキー設定">⚙</button>
+    </div>
+    <div class="goal-edit-bar" id="apiKeyBar" style="display:none">
+      <span style="font-size:11px;font-weight:700;color:var(--text1);">Anthropic APIキー</span>
+      <input type="password" id="apiKeyInput" class="goal-input" style="width:260px;" placeholder="sk-ant-api03-...">
+      <button class="goal-save" onclick="saveApiKey()">保存</button>
+      <span style="font-size:10px;color:var(--text2);">キーはこのブラウザ内にのみ保存されます</span>
+    </div>
+    <div id="insightsPanel" style="display:none" class="insights-panel"></div>
   </div>
 
   <!-- ===== 日別推移 ===== -->
@@ -1495,8 +1525,135 @@ async function loadAllVisitSheets() {
   return [...baseResults, ...probeResults.filter(r=>r.ok)];
 }
 
+/* ===== AI インサイト ===== */
+function toggleApiKeyBar() {
+  const bar = document.getElementById('apiKeyBar');
+  bar.style.display = bar.style.display === 'none' ? 'flex' : 'none';
+}
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) { localStorage.setItem('claudeApiKey', key); alert('APIキーを保存しました'); }
+}
+function loadApiKey() {
+  const key = localStorage.getItem('claudeApiKey');
+  if (key) document.getElementById('apiKeyInput').value = key;
+}
+
+function md2html(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^#{1,3} (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^[-・] (.+)$/gm,'<li>$1</li>')
+    .replace(/^(\d+)[.．] (.+)$/gm,'<li><strong>$1.</strong> $2</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
+    .replace(/\n{2,}/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
+async function generateInsights() {
+  const apiKey = localStorage.getItem('claudeApiKey');
+  if (!apiKey) {
+    document.getElementById('apiKeyBar').style.display = 'flex';
+    document.getElementById('apiKeyInput').focus();
+    return;
+  }
+
+  const months = [...new Set(RAW.map(r=>r._month).filter(Boolean))].sort((a,b)=>monthOrder(a)-monthOrder(b));
+  const targetMonth = v('fMonth') || months[months.length-1];
+  const prevMonth   = months[months.indexOf(targetMonth)-1] || null;
+  const bizList     = BIZ==='both' ? ['mcl','stl'] : [BIZ];
+  const goals       = loadGoals();
+
+  const dataText = bizList.map(biz => {
+    const rows  = RAW.filter(r => r._biz===biz && r._month===targetMonth);
+    const rowsP = prevMonth ? RAW.filter(r => r._biz===biz && r._month===prevMonth) : [];
+    const k  = calcKPI(rows);
+    const kP = rowsP.length ? calcKPI(rowsP) : null;
+    const g  = goals[biz] || {};
+    const label = biz==='mcl' ? 'MCL（メンズ脱毛）' : 'STL（レディース脱毛）';
+
+    const mom = (cur, prev, isRate=false) => {
+      if (!kP) return '';
+      const diff = isRate ? (cur-prev)*100 : (cur-prev)/prev*100;
+      return ` (前月比 ${diff>=0?'+':''}${diff.toFixed(1)}${isRate?'pt':'%'})`;
+    };
+
+    return `【${label}】対象月: ${targetMonth}
+来店数: ${fmt(k.n)}件${mom(k.n, kP?.n)}${g.visit ? ` / 月次目標: ${fmt(g.visit)}件 (達成率${(k.n/g.visit*100).toFixed(0)}%)` : ''}
+契約数: ${fmt(k.con)}件${mom(k.con, kP?.con)}${g.con ? ` / 月次目標: ${fmt(g.con)}件 (達成率${(k.con/g.con*100).toFixed(0)}%)` : ''}
+契約率: ${pct(k.conRate)}${mom(k.conRate, kP?.conRate, true)}
+契約単価: ${yenCeil(k.avgUnit)}${mom(k.avgUnit, kP?.avgUnit)}
+CPI: ${yenCeil(k.cpi)}${mom(k.cpi, kP?.cpi)}
+アップセル率: ${pct(k.upsellRate)}${mom(k.upsellRate, kP?.upsellRate, true)}
+アップセル単価: ${k.upsellCon>0 ? yenCeil(k.upsellAvg) : 'データなし'}`;
+  }).join('\n\n');
+
+  const prompt = `あなたは美容脱毛サロンチェーンの敏腕経営アドバイザーです。
+以下のKPIデータを分析し、現場で即実践できる日本語のインサイトをください。
+
+${dataText}
+
+以下の構成で回答してください（マークダウン使用可）：
+## 総評
+今月の全体的な状況を2〜3文で端的に。
+
+## 注目ポイント
+- 良い点・懸念点を合わせて3〜5個、数字を引用しながら具体的に
+
+## 来週・来月のアクション提案
+- 誰が・何を・なぜやるべきか、具体的に2〜3個
+
+数字の背景にある意味と、現場が動けるアクションを重視してください。`;
+
+  const panel = document.getElementById('insightsPanel');
+  const btn   = document.getElementById('aiBtn');
+  panel.style.display = 'block';
+  panel.innerHTML = `<div class="loading"><div class="spin"></div> Claude が分析中…</div>`;
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role:'user', content:prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error?.message || `APIエラー (${res.status})`);
+    }
+
+    const json = await res.json();
+    const text = json.content[0].text;
+    const now  = new Date();
+    const time = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    panel.innerHTML = `
+      <div class="insights-header">
+        <span class="insights-badge">🤖 AI インサイト</span>
+        <span class="insights-meta">${targetMonth} · ${time} 生成</span>
+      </div>
+      <div class="insights-body">${md2html(text)}</div>`;
+  } catch(e) {
+    panel.innerHTML = `<div style="color:var(--red);padding:8px;font-size:13px;">⚠️ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 init();
 initGoalInputs();
+loadApiKey();
 startAutoRefresh();
 </script>
 </body>
