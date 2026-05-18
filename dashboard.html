@@ -1798,20 +1798,20 @@ function buildDataContext() {
   const kM = biz => calcKPI(rowsMonth.filter(r=>r._biz===biz));
   const mMCL = kM('mcl'), mSTL = kM('stl');
 
-  return `基準日: ${todayStr} / データ範囲: ${months.join(', ')}
+  // 各セクション上位15件に絞ってトークン節約
+  const top = arr => arr.slice(0, 15);
 
-■ 直近3日（${daysAgo(2)}〜${todayStr}）担当者別KPI
-${staffKPI(inRange(daysAgo(2), todayStr)) || '  データなし'}
+  return `基準日:${todayStr} 範囲:${latestMonth}
 
-■ 直近7日（${daysAgo(6)}〜${todayStr}）担当者別KPI
-${staffKPI(inRange(daysAgo(6), todayStr)) || '  データなし'}
+■直近3日(${daysAgo(2)}〜${todayStr})担当者別KPI
+${top(staffKPI(inRange(daysAgo(2), todayStr))).join('\n') || '  データなし'}
 
-■ 今週（${wg?.label||'-'}）担当者別KPI
-${staffKPI(rowsWeek) || '  データなし'}
+■今週(${wg?.label||'-'})担当者別KPI
+${top(staffKPI(rowsWeek)).join('\n') || '  データなし'}
 
-■ ${latestMonth} 月次全体KPI
-  MCL: 来店${mMCL.n}件 契約率${pct(mMCL.conRate)} CPI${yenCeil(mMCL.cpi)} US率${pct(mMCL.upsellRate)} US単価${mMCL.upsellCon>0?yenCeil(mMCL.upsellAvg):'-'}
-  STL: 来店${mSTL.n}件 契約率${pct(mSTL.conRate)} CPI${yenCeil(mSTL.cpi)} US率${pct(mSTL.upsellRate)} US単価${mSTL.upsellCon>0?yenCeil(mSTL.upsellAvg):'-'}`;
+■${latestMonth}月次全体
+MCL:来店${mMCL.n}件 契約率${pct(mMCL.conRate)} CPI${yenCeil(mMCL.cpi)} US率${pct(mMCL.upsellRate)}
+STL:来店${mSTL.n}件 契約率${pct(mSTL.conRate)} CPI${yenCeil(mSTL.cpi)} US率${pct(mSTL.upsellRate)}`;
 }
 
 function setChat(text) {
@@ -1848,7 +1848,7 @@ async function sendChat() {
   CHAT_HISTORY.push({ role:'user', content: question });
 
   try {
-    const sys = `あなたは美容脱毛サロンチェーンのデータアナリストです。以下のリアルタイムKPIデータをもとに、経営者・マネージャーの質問に日本語で簡潔かつ具体的に答えてください。必ず数値を引用し、担当者名と数値をセットで示してください。集客・マーケ（来店数の増減原因）は分析範囲外です。
+    const sys = `美容脱毛サロンのKPIデータアナリスト。以下のデータをもとに日本語で簡潔・具体的に答えてください。数値と担当者名を必ず引用。来店数増減の原因分析は対象外。
 
 ${buildDataContext()}`;
 
@@ -1856,9 +1856,9 @@ ${buildDataContext()}`;
       method: 'POST',
       headers: { 'content-type':'application/json', 'Authorization':`Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role:'system', content: sys }, ...CHAT_HISTORY.slice(-8)],
-        max_tokens: 700,
+        model: 'llama-3.1-8b-instant',
+        messages: [{ role:'system', content: sys }, ...CHAT_HISTORY.slice(-6)],
+        max_tokens: 600,
       }),
     });
 
